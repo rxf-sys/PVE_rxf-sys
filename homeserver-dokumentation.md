@@ -2,22 +2,56 @@
 
 **Server:** rxfsys  
 **Erstellt:** 2025-01-26  
+**Zuletzt aktualisiert:** 2025-01-26  
 **Proxmox Version:** 9.1.1  
-**Kernel:** Linux 6.17.2-1-pve  
+**Kernel:** Linux 6.17.2-1-pve (EFI Secure Boot)  
 
 ---
 
 ## Inhaltsverzeichnis
 
-1. [Hardware-Übersicht](#hardware-übersicht)
-2. [Netzwerk-Konfiguration](#netzwerk-konfiguration)
-3. [Storage-Konfiguration](#storage-konfiguration)
-4. [Container-Übersicht](#container-übersicht)
-5. [Dienste und Zugangsdaten](#dienste-und-zugangsdaten)
-6. [Wichtige Befehle](#wichtige-befehle)
-7. [Backup-Strategie](#backup-strategie)
-8. [Wartung und Updates](#wartung-und-updates)
-9. [Troubleshooting](#troubleshooting)
+1. [Quick Reference](#quick-reference)
+2. [Hardware-Übersicht](#hardware-übersicht)
+3. [Netzwerk-Konfiguration](#netzwerk-konfiguration)
+4. [Storage-Konfiguration](#storage-konfiguration)
+5. [Container-Übersicht](#container-übersicht)
+6. [Dienste und Zugangsdaten](#dienste-und-zugangsdaten)
+7. [Firewall-Konfiguration](#firewall-konfiguration)
+8. [SMART-Monitoring](#smart-monitoring)
+9. [Backup-Strategie](#backup-strategie)
+10. [Wichtige Befehle](#wichtige-befehle)
+11. [Wartung und Updates](#wartung-und-updates)
+12. [Troubleshooting](#troubleshooting)
+
+---
+
+## Quick Reference
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  PROXMOX HOST        https://192.168.2.120:8006            │
+│                      SSH: root@192.168.2.120               │
+├─────────────────────────────────────────────────────────────┤
+│  CT 100 - NAS          192.168.2.121   Samba :445          │
+│  CT 101 - Pi-hole      192.168.2.122   DNS :53, Web :80    │
+│  CT 102 - WireGuard    192.168.2.123   VPN :51820          │
+│  CT 103 - Vaultwarden  192.168.2.124   (via Nginx)         │
+│  CT 104 - Nginx-Proxy  192.168.2.125   Web :80/:443/:81    │
+├─────────────────────────────────────────────────────────────┤
+│  Storage-SSD           /mnt/storage    458 GB              │
+│  Backup-SSD            /mnt/backups    (einrichten!)       │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Wichtige URLs
+
+| Dienst | URL |
+|--------|-----|
+| Proxmox | https://192.168.2.120:8006 |
+| Pi-hole | http://192.168.2.122/admin |
+| WireGuard (wg-easy) | http://192.168.2.123:51821 |
+| Nginx Proxy Manager | http://192.168.2.125:81 |
+| NAS (Windows) | `\\192.168.2.121\shared` |
 
 ---
 
@@ -27,22 +61,32 @@
 |------------|---------------|
 | **CPU** | Intel Core i5-9500T @ 2.20GHz (6 Cores) |
 | **RAM** | 32 GB DDR4 |
-| **System-Disk** | 500 GB NVMe SSD (`/dev/nvme0n1`) |
-| **Storage-Disk** | 500 GB SATA SSD (`/dev/sda`) → `/mnt/storage` |
+| **System-Disk** | Kingston SA2000M8 500GB NVMe (`/dev/nvme0n1`) |
+| **Storage-Disk** | Samsung SSD 860 EVO 500GB (`/dev/sda`) → `/mnt/storage` |
 | **Backup-Disk** | 500 GB SSD (noch nicht eingebunden) |
 | **Boot-Mode** | EFI (Secure Boot) |
 
-### Ressourcen-Auslastung (Richtwerte)
+### Ressourcen-Auslastung
 
 ```
-Gesamt RAM:     32 GB
-Zugewiesen:     ~6.5 GB (Container)
-Verfügbar:      ~25 GB
+RAM:
+  Gesamt:     32 GB
+  Zugewiesen: ~6.5 GB (Container)
+  Verfügbar:  ~25 GB
 
-Gesamt Storage: ~465 GB (NVMe) + 465 GB (Storage-SSD)
-LVM-Thin Pool:  337 GB (für Container-Disks)
-Genutzt:        ~10 GB
+Storage:
+  NVMe (System):     465 GB
+  LVM-Thin Pool:     337 GB (für Container-Disks)
+  Storage-SSD:       458 GB (/mnt/storage)
+  Genutzt (LVM):     ~10 GB
 ```
+
+### SMART-Status
+
+| Disk | Modell | Status |
+|------|--------|--------|
+| `/dev/sda` | Samsung SSD 860 EVO 500GB | ✅ PASSED |
+| `/dev/nvme0n1` | Kingston SA2000M8 500GB | ✅ PASSED |
 
 ---
 
@@ -80,16 +124,26 @@ iface nic1 inet manual
 source /etc/network/interfaces.d/*
 ```
 
-### IP-Adressen der Dienste
+### IP-Adressen aller Dienste
 
-| Dienst | Container | IP-Adresse | Port(s) |
-|--------|-----------|------------|---------|
-| **Proxmox Web-UI** | Host | 192.168.2.120 | 8006 (HTTPS) |
-| **NAS (Samba)** | CT 100 | DHCP (TODO: statisch) | 445 |
-| **Pi-hole** | CT 101 | 192.168.2.122 | 80 (Web), 53 (DNS) |
-| **WireGuard** | CT 102 | DHCP (TODO: statisch) | 51820/UDP |
-| **Vaultwarden** | CT 103 | DHCP (TODO: statisch) | 80/443 |
-| **Nginx-Proxy** | CT 104 | DHCP (TODO: statisch) | 80, 443 |
+| Dienst | Container | IPv4 | IPv6 (SLAAC) | Ports |
+|--------|-----------|------|--------------|-------|
+| **Proxmox** | Host | 192.168.2.120 | - | 8006, 22 |
+| **NAS** | CT 100 | 192.168.2.121 | 2003:e7:4f3f:c63f:be24:11ff:fe90:e2a7 | 445, 139 |
+| **Pi-hole** | CT 101 | 192.168.2.122 | 2003:e7:4f3f:c63f:be24:11ff:fe44:b642 | 53, 80 |
+| **WireGuard** | CT 102 | 192.168.2.123 | 2003:e7:4f3f:c63f:be24:11ff:fe7b:303f | 51820, 51821 |
+| **Vaultwarden** | CT 103 | 192.168.2.124 | 2003:e7:4f3f:c63f:be24:11ff:fec6:9b7c | 80, 3012 |
+| **Nginx-Proxy** | CT 104 | 192.168.2.125 | 2003:e7:4f3f:c63f:be24:11ff:fef6:db42 | 80, 443, 81 |
+
+### Docker-Netzwerke in Containern
+
+Einige Container haben zusätzliche Docker-Bridge-Netzwerke:
+
+| Container | Zusätzliche IPs |
+|-----------|-----------------|
+| CT 102 (WireGuard) | 172.17.0.1, 172.18.0.1, 10.8.1.1 (WG-Tunnel) |
+| CT 103 (Vaultwarden) | 172.17.0.1, 172.18.0.1 |
+| CT 104 (Nginx-Proxy) | 172.17.0.1, 172.18.0.1 |
 
 ---
 
@@ -110,31 +164,39 @@ source /etc/network/interfaces.d/*
 ├── nvme0n1p1    1007K   BIOS boot
 ├── nvme0n1p2    1G      /boot/efi (FAT32)
 └── nvme0n1p3    464G    LVM (pve)
-    ├── pve-swap     8G      [SWAP]
-    ├── pve-root     96G     / (ext4)
-    └── pve-data     337G    LVM-Thin Pool
+    ├── pve-swap           8G    [SWAP]
+    ├── pve-root          96G    / (ext4)
+    └── pve-data         337G    LVM-Thin Pool
+        ├── vm-100-disk-0  15G   CT 100 rootfs
+        ├── vm-100-disk-1   8G   CT 100 mp0 (alt, nicht mehr genutzt)
+        ├── vm-101-disk-0   8G   CT 101 rootfs
+        ├── vm-102-disk-0   8G   CT 102 rootfs
+        ├── vm-103-disk-0   8G   CT 103 rootfs
+        └── vm-104-disk-0   8G   CT 104 rootfs
 
 /dev/sda (500 GB SATA SSD - Storage)
-└── sda          458G    /mnt/storage (ext4)
+└── sda              458G    /mnt/storage (ext4)
 ```
 
-### fstab-Eintrag prüfen
+### fstab-Eintrag
+
+**Pfad:** `/etc/fstab`
 
 ```bash
-# Aktuellen Mount prüfen
-cat /etc/fstab | grep storage
+# Storage-SSD (Prüfen ob vorhanden!)
+UUID=DEINE-UUID /mnt/storage ext4 defaults,noatime,nofail 0 2
+```
 
-# Falls nicht vorhanden, UUID ermitteln und eintragen:
-blkid /dev/sda
-# Dann in /etc/fstab:
-# UUID=DEINE-UUID /mnt/storage ext4 defaults,noatime 0 2
+**Prüfen:**
+```bash
+grep storage /etc/fstab
 ```
 
 ### Ordnerstruktur (empfohlen)
 
 ```
 /mnt/storage/
-├── shared/       # Samba-Freigaben (NAS)
+├── shared/       # Samba-Freigaben (NAS) → CT 100
 ├── media/        # Filme, Musik, Fotos (Jellyfin)
 ├── backups/      # Daten-Backups
 └── appdata/      # Container-Anwendungsdaten
@@ -148,18 +210,17 @@ blkid /dev/sda
 
 | VMID | Name | Status | OS | RAM | CPU | Disk | IP |
 |------|------|--------|-----|-----|-----|------|-----|
-| 100 | nas | running | Debian | 1024 MB | 1 | 15 GB + 8 GB | DHCP |
-| 101 | pi-hole | running | Debian | 1024 MB | 1 | 8 GB | 192.168.2.122 |
-| 102 | wireguard | running | Debian | 1024 MB | 1 | 8 GB | DHCP |
-| 103 | vaultwarden | running | Debian | 2048 MB | 1 | 8 GB | DHCP |
-| 104 | nginx-proxy | running | Debian | 1024 MB | 1 | 8 GB | DHCP |
+| 100 | nas | ✅ running | Debian | 1024 MB | 1 | 15 GB | 192.168.2.121 |
+| 101 | pi-hole | ✅ running | Debian | 1024 MB | 1 | 8 GB | 192.168.2.122 |
+| 102 | wireguard | ✅ running | Debian | 1024 MB | 1 | 8 GB | 192.168.2.123 |
+| 103 | vaultwarden | ✅ running | Debian | 2048 MB | 1 | 8 GB | 192.168.2.124 |
+| 104 | nginx-proxy | ✅ running | Debian | 1024 MB | 1 | 8 GB | 192.168.2.125 |
 
-### Detaillierte Container-Konfigurationen
+### Detailkonfigurationen
 
 #### CT 100 - NAS (Samba)
 
 ```ini
-# /etc/pve/lxc/100.conf
 arch: amd64
 cores: 1
 features: nesting=1
@@ -173,17 +234,11 @@ swap: 1024
 unprivileged: 1
 ```
 
-**Hinweis:** Mountpoint zeigt auf LVM (8GB), nicht auf Storage-SSD!
-
-**TODO:** Ändern zu:
-```ini
-mp0: /mnt/storage/shared,mp=/srv/shared,backup=0
-```
+**TODO:** Mountpoint ändern auf `/mnt/storage/shared` (siehe Anleitung)
 
 #### CT 101 - Pi-hole
 
 ```ini
-# /etc/pve/lxc/101.conf
 arch: amd64
 cores: 1
 features: nesting=1
@@ -196,12 +251,9 @@ swap: 1024
 unprivileged: 1
 ```
 
-**Web-UI:** http://192.168.2.122/admin
-
 #### CT 102 - WireGuard
 
 ```ini
-# /etc/pve/lxc/102.conf
 arch: amd64
 cores: 1
 features: nesting=1
@@ -214,12 +266,9 @@ swap: 1024
 unprivileged: 1
 ```
 
-**TODO:** Statische IP vergeben, Port 51820/UDP im Router freigeben
-
 #### CT 103 - Vaultwarden
 
 ```ini
-# /etc/pve/lxc/103.conf
 arch: amd64
 cores: 1
 features: nesting=1
@@ -232,12 +281,9 @@ swap: 2048
 unprivileged: 1
 ```
 
-**Wichtig:** Benötigt HTTPS! Über Nginx-Proxy oder direkt konfigurieren.
-
 #### CT 104 - Nginx-Proxy
 
 ```ini
-# /etc/pve/lxc/104.conf
 arch: amd64
 cores: 1
 features: nesting=1
@@ -254,44 +300,163 @@ unprivileged: 1
 
 ## Dienste und Zugangsdaten
 
+> ⚠️ **WICHTIG:** Trage hier deine echten Passwörter ein und bewahre diese Datei sicher auf!
+
 ### Proxmox VE
 
 | Parameter | Wert |
 |-----------|------|
 | **URL** | https://192.168.2.120:8006 |
 | **Benutzer** | root@pam |
-| **Passwort** | [HIER EINTRAGEN] |
+| **Passwort** | `___________________` |
 
 ### Pi-hole
 
 | Parameter | Wert |
 |-----------|------|
 | **URL** | http://192.168.2.122/admin |
-| **Passwort** | [HIER EINTRAGEN] |
-| **DNS-Port** | 53 |
+| **Passwort** | `___________________` |
+| **DNS-Port** | 53 (TCP/UDP) |
 
 ### Samba/NAS
 
 | Parameter | Wert |
 |-----------|------|
-| **Zugriff** | `\\[NAS-IP]\shared` |
-| **Benutzer** | [HIER EINTRAGEN] |
-| **Passwort** | [HIER EINTRAGEN] |
+| **Windows-Zugriff** | `\\192.168.2.121\shared` |
+| **Linux-Zugriff** | `smb://192.168.2.121/shared` |
+| **Benutzer** | `___________________` |
+| **Passwort** | `___________________` |
 
 ### WireGuard VPN
 
 | Parameter | Wert |
 |-----------|------|
-| **Server-Port** | 51820/UDP |
-| **Web-UI (wg-easy)** | http://[WIREGUARD-IP]:51821 |
-| **Passwort** | [HIER EINTRAGEN] |
+| **VPN-Port** | 51820/UDP |
+| **Web-UI (wg-easy)** | http://192.168.2.123:51821 |
+| **UI-Passwort** | `___________________` |
+| **WG-Tunnel-Netz** | 10.8.1.0/24 |
 
 ### Vaultwarden
 
 | Parameter | Wert |
 |-----------|------|
-| **URL** | https://[VAULTWARDEN-IP] (via Nginx) |
-| **Admin-Token** | [HIER EINTRAGEN] |
+| **URL** | https://vault.DEINE-DOMAIN (via Nginx) |
+| **Direkt (intern)** | http://192.168.2.124 |
+| **Admin-Token** | `___________________` |
+
+### Nginx Proxy Manager
+
+| Parameter | Wert |
+|-----------|------|
+| **Admin-URL** | http://192.168.2.125:81 |
+| **E-Mail** | `___________________` |
+| **Passwort** | `___________________` |
+
+---
+
+## Firewall-Konfiguration
+
+### Status
+
+| Ebene | Status |
+|-------|--------|
+| Datacenter | ⬜ Konfiguriert (aktivieren mit Script) |
+| Container | ⬜ Konfiguriert (aktivieren mit Script) |
+
+### Firewall-Regeln Übersicht
+
+| Container | Port | Protokoll | Quelle | Beschreibung |
+|-----------|------|-----------|--------|--------------|
+| **Host** | 8006 | TCP | 192.168.2.0/24 | Proxmox Web-UI |
+| **Host** | 22 | TCP | 192.168.2.0/24 | SSH |
+| **CT 100** | 445 | TCP | 192.168.2.0/24 | Samba/SMB |
+| **CT 100** | 139 | TCP | 192.168.2.0/24 | Samba/NetBIOS |
+| **CT 100** | 137-138 | UDP | 192.168.2.0/24 | Samba/NetBIOS |
+| **CT 101** | 53 | TCP/UDP | 192.168.2.0/24 | DNS |
+| **CT 101** | 80 | TCP | 192.168.2.0/24 | Pi-hole Web |
+| **CT 102** | 51820 | UDP | 0.0.0.0/0 | WireGuard VPN |
+| **CT 102** | 51821 | TCP | 192.168.2.0/24 | WG-Easy Web-UI |
+| **CT 103** | 80 | TCP | 192.168.2.125 | Vaultwarden (nur Nginx) |
+| **CT 103** | 3012 | TCP | 192.168.2.125 | Vaultwarden Websocket |
+| **CT 104** | 80 | TCP | 0.0.0.0/0 | HTTP |
+| **CT 104** | 443 | TCP | 0.0.0.0/0 | HTTPS |
+| **CT 104** | 81 | TCP | 192.168.2.0/24 | NPM Admin |
+
+### Firewall aktivieren
+
+```bash
+# Script ausführen (siehe firewall-setup.sh)
+bash /root/firewall-setup.sh
+
+# Oder manuell:
+pve-firewall restart
+pve-firewall status
+```
+
+### Notfall: Firewall deaktivieren
+
+```bash
+pve-firewall stop
+```
+
+---
+
+## SMART-Monitoring
+
+### Status
+
+| Dienst | Status |
+|--------|--------|
+| smartmontools | ✅ Installiert (7.4-pve1) |
+| smartd | ✅ Aktiv (smartmontools.service) |
+
+### Disks überwacht
+
+| Disk | Modell | Seriennummer | Status |
+|------|--------|--------------|--------|
+| `/dev/sda` | Samsung SSD 860 EVO 500GB | S4CNNX0N806119L | ✅ PASSED |
+| `/dev/nvme0n1` | Kingston SA2000M8 500GB | 50026B7683BC92D3 | ✅ PASSED |
+
+### SMART-Befehle
+
+```bash
+# Gesundheitsstatus prüfen
+smartctl -H /dev/sda
+smartctl -H /dev/nvme0n1
+
+# Vollständiger Report
+smartctl -a /dev/sda
+smartctl -a /dev/nvme0n1
+
+# Dienst-Status
+systemctl status smartmontools.service
+```
+
+---
+
+## Backup-Strategie
+
+### Aktueller Status
+
+| Komponente | Status |
+|------------|--------|
+| Backup-SSD | ⬜ Noch nicht eingebunden |
+| Backup-Schedule | ⬜ Noch nicht konfiguriert |
+| Offsite-Backup | ⬜ Nicht vorhanden |
+
+### TODO: Backup einrichten
+
+1. Backup-SSD einbinden unter `/mnt/backups`
+2. Proxmox Backup-Job erstellen (Datacenter → Backup)
+3. Retention konfigurieren (keep-last=7, keep-weekly=4)
+
+### 3-2-1 Regel (Ziel)
+
+| Kopie | Medium | Ort | Status |
+|-------|--------|-----|--------|
+| Original | Storage-SSD | Server | ✅ |
+| Backup 1 | Backup-SSD | Server | ⬜ |
+| Backup 2 | Cloud/Extern | Außer Haus | ⬜ |
 
 ---
 
@@ -318,125 +483,77 @@ pct enter 100
 pct config 100
 
 # Alle Container-Configs
-for i in $(pct list | awk 'NR>1 {print $1}'); do echo "=== CT $i ==="; pct config $i; done
+for i in $(pct list | awk 'NR>1 {print $1}'); do
+  echo "=== CT $i ==="
+  pct config $i
+done
 
+# Alle Container-IPs
+for i in $(pct list | awk 'NR>1 {print $1}'); do
+  echo -n "CT $i: "
+  pct exec $i -- hostname -I 2>/dev/null || echo "nicht erreichbar"
+done
+```
+
+### Storage
+
+```bash
 # Storage-Status
 pvesm status
 df -h
 lsblk
 
-# Festplatten-Gesundheit
-smartctl -a /dev/sda
-smartctl -a /dev/nvme0n1
+# Speicherverbrauch
+du -sh /var/lib/vz/*
+lvs
+```
 
+### Netzwerk
+
+```bash
 # Netzwerk-Status
 ip addr
 cat /etc/network/interfaces
 
-# Logs
+# Firewall
+pve-firewall status
+pve-firewall restart
+```
+
+### SMART / Festplatten
+
+```bash
+# Gesundheit prüfen
+smartctl -H /dev/sda
+smartctl -H /dev/nvme0n1
+
+# Vollständiger Report
+smartctl -a /dev/sda
+```
+
+### Backup
+
+```bash
+# Manuelles Backup eines Containers
+vzdump 100 --storage local --compress zstd --mode snapshot
+
+# Backup wiederherstellen
+pct restore 999 /var/lib/vz/dump/vzdump-lxc-100-*.tar.zst --storage local-lvm
+```
+
+### Logs
+
+```bash
+# System-Logs
 journalctl -xe
 tail -f /var/log/syslog
 
-# Proxmox-Dienste neustarten
-systemctl restart pvedaemon pveproxy
+# Fehler der letzten Boot-Session
+journalctl -p err -b
+
+# Proxmox-Dienste
+systemctl status pvedaemon pveproxy
 ```
-
-### Container-Verwaltung
-
-```bash
-# Backup eines Containers erstellen
-vzdump 100 --storage local --mode snapshot
-
-# Container aus Backup wiederherstellen
-pct restore 100 /var/lib/vz/dump/vzdump-lxc-100-*.tar.zst
-
-# Mountpoint hinzufügen (Container muss gestoppt sein)
-pct set 100 -mp0 /mnt/storage/shared,mp=/srv/shared
-
-# Ressourcen ändern
-pct set 100 -memory 2048
-pct set 100 -cores 2
-
-# Statische IP setzen
-pct set 100 -net0 name=eth0,bridge=vmbr0,ip=192.168.2.130/24,gw=192.168.2.1
-```
-
-### In den Containern
-
-```bash
-# Updates (Debian/Ubuntu)
-apt update && apt upgrade -y
-
-# Dienst-Status prüfen
-systemctl status <dienst>
-
-# Logs eines Dienstes
-journalctl -u <dienst> -f
-
-# Netzwerk testen
-ip addr
-ping 192.168.2.1
-ping 8.8.8.8
-```
-
----
-
-## Backup-Strategie
-
-### Aktuelle Situation
-
-- ❌ Backup-SSD noch nicht eingebunden
-- ❌ Kein automatischer Backup-Schedule
-- ⚠️ Keine Offsite-Backups
-
-### Empfohlene Konfiguration
-
-#### 1. Backup-SSD einbinden
-
-```bash
-# SSD identifizieren
-lsblk
-
-# Formatieren (ACHTUNG: Löscht alle Daten!)
-mkfs.ext4 -L backups /dev/sdX
-
-# Mountpoint erstellen
-mkdir -p /mnt/backups
-
-# UUID ermitteln
-blkid /dev/sdX
-
-# In fstab eintragen
-echo 'UUID=DEINE-UUID /mnt/backups ext4 defaults,noatime 0 2' >> /etc/fstab
-
-# Mounten
-mount -a
-```
-
-#### 2. Backup-Storage in Proxmox anlegen
-
-Datacenter → Storage → Add → Directory:
-- **ID:** backup-local
-- **Directory:** /mnt/backups
-- **Content:** VZDump backup file
-
-#### 3. Backup-Schedule einrichten
-
-Datacenter → Backup → Add:
-- **Storage:** backup-local
-- **Schedule:** Täglich 03:00
-- **Selection mode:** All
-- **Mode:** Snapshot
-- **Compression:** ZSTD
-- **Retention:** keep-last=7, keep-weekly=4
-
-### 3-2-1 Regel
-
-| Kopie | Medium | Ort |
-|-------|--------|-----|
-| 1 (Original) | Storage-SSD | Server |
-| 2 (Backup) | Backup-SSD | Server |
-| 3 (Offsite) | Cloud/externe HDD | Außer Haus |
 
 ---
 
@@ -444,7 +561,7 @@ Datacenter → Backup → Add:
 
 ### Monatliche Routine
 
-1. **Proxmox-Host updaten**
+1. **Host updaten**
    ```bash
    apt update && apt full-upgrade -y
    ```
@@ -452,20 +569,18 @@ Datacenter → Backup → Add:
 2. **Container updaten**
    ```bash
    for i in $(pct list | awk 'NR>1 {print $1}'); do
-     echo "Updating CT $i..."
+     echo "=== Updating CT $i ==="
      pct exec $i -- apt update
      pct exec $i -- apt upgrade -y
    done
    ```
 
-3. **Festplatten-Gesundheit prüfen**
+3. **SMART prüfen**
    ```bash
-   smartctl -H /dev/sda
-   smartctl -H /dev/nvme0n1
+   smartctl -H /dev/sda && smartctl -H /dev/nvme0n1
    ```
 
 4. **Backup-Integrität prüfen**
-   - Stichprobenartig Restore testen
 
 5. **Logs auf Fehler prüfen**
    ```bash
@@ -475,9 +590,9 @@ Datacenter → Backup → Add:
 ### Vor größeren Updates
 
 1. Snapshot/Backup aller Container erstellen
-2. Proxmox Release Notes lesen
+2. Release Notes lesen
 3. Update durchführen
-4. Funktionstest aller Dienste
+4. Alle Dienste testen
 
 ---
 
@@ -487,37 +602,31 @@ Datacenter → Backup → Add:
 
 ```bash
 # Auf Host prüfen:
-ping 192.168.2.120
 systemctl status pveproxy
 journalctl -u pveproxy
 
-# Firewall prüfen
-iptables -L -n
+# Firewall deaktivieren (falls aktiv)
+pve-firewall stop
 ```
 
 ### Container startet nicht
 
 ```bash
 # Logs prüfen
-pct start 100
 journalctl -xe
 
 # Config prüfen
 pct config 100
 
-# Manuell starten mit Debug
+# Manuell mit Debug starten
 lxc-start -n 100 -F -l DEBUG
 ```
 
 ### Mountpoint Permission Denied
 
-Bei unprivileged Containern werden UIDs/GIDs gemappt (100000+).
-
 ```bash
-# Auf Host: Berechtigungen für Container setzen
+# Bei unprivileged Containern: UIDs werden gemappt (100000+)
 chown -R 100000:100000 /mnt/storage/shared
-
-# Oder im Container passende User anlegen
 ```
 
 ### Netzwerk-Probleme im Container
@@ -527,25 +636,15 @@ chown -R 100000:100000 /mnt/storage/shared
 ip addr
 ip route
 cat /etc/resolv.conf
-
-# DNS testen
 ping 8.8.8.8
-nslookup google.com
 ```
 
 ### Storage voll
 
 ```bash
-# Speicherverbrauch analysieren
 df -h
 du -sh /var/lib/vz/*
-lvs
-
-# Alte Backups löschen
-ls -la /var/lib/vz/dump/
-
-# LVM-Thin-Pool prüfen
-lvs -a | grep pve-data
+lvs -a | grep pve
 ```
 
 ---
@@ -558,14 +657,16 @@ lvs -a | grep pve-data
 - Proxmox Forum: https://forum.proxmox.com/
 - Pi-hole Docs: https://docs.pi-hole.net/
 - Vaultwarden Wiki: https://github.com/dani-garcia/vaultwarden/wiki
-- WireGuard Docs: https://www.wireguard.com/quickstart/
+- WireGuard: https://www.wireguard.com/
 
 ### Änderungshistorie
 
 | Datum | Änderung |
 |-------|----------|
-| 2025-01-26 | Initiale Dokumentation erstellt |
+| 2025-01-26 | Initiale Dokumentation |
+| 2025-01-26 | IPs aktualisiert, SMART-Status hinzugefügt |
+| 2025-01-26 | Firewall-Regeln dokumentiert |
 
 ---
 
-*Dokumentation generiert am 2025-01-26 für Server rxfsys*
+*Dokumentation für Server rxfsys | Letzte Aktualisierung: 2025-01-26*
