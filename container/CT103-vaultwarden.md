@@ -10,7 +10,7 @@
 | **RAM** | 2048 MB |
 | **CPU** | 1 Core |
 | **Disk** | 8 GB |
-| **OS** | Debian |
+| **OS** | Debian Trixie |
 | **Dienst** | Vaultwarden (Docker) |
 
 ---
@@ -34,6 +34,12 @@ Vaultwarden ist eine selbst-gehostete, leichtgewichtige Bitwarden-kompatible Pas
 | Parameter | Wert |
 |-----------|------|
 | Admin-Token | `___________________` |
+
+### SSL-Zertifikat
+
+| Domain | Gültig bis |
+|--------|------------|
+| vault-rxfsys.duckdns.org | 27. April 2026 |
 
 ---
 
@@ -77,6 +83,23 @@ services:
       - "8081:80"
       - "3012:3012"
     restart: unless-stopped
+```
+
+---
+
+## Admin-Token sichern (empfohlen)
+
+Der Admin-Token sollte als Argon2-Hash gespeichert werden:
+
+```bash
+# Hash generieren
+pct exec 103 -- docker exec -it vaultwarden /vaultwarden hash
+
+# Interaktiv mit Passwort
+pct exec 103 -- docker exec -it vaultwarden sh -c "echo 'DEIN_ADMIN_PASSWORT' | /vaultwarden hash"
+
+# Dann in docker-compose.yml:
+# ADMIN_TOKEN='$argon2id$v=19$m=65540,t=3,p=4$...'
 ```
 
 ---
@@ -152,7 +175,7 @@ IN ACCEPT -p icmp
 
 ## Backup
 
-### 🔴 KRITISCH: Datenbank sichern
+### 🔴 KRITISCH: Datenbank regelmäßig sichern!
 
 ```bash
 # Manuelles Backup
@@ -164,11 +187,23 @@ vzdump 103 --storage local --compress zstd --mode snapshot
 
 ### Wichtige Dateien
 
-| Datei | Beschreibung |
-|-------|--------------|
-| `/srv/appdata/vaultwarden/db.sqlite3` | 🔴 Passwort-Datenbank |
-| `/srv/appdata/vaultwarden/config.json` | Konfiguration |
-| `/srv/appdata/vaultwarden/attachments/` | Datei-Anhänge |
+| Datei | Beschreibung | Priorität |
+|-------|--------------|-----------|
+| `/srv/appdata/vaultwarden/db.sqlite3` | Passwort-Datenbank | 🔴 Kritisch |
+| `/srv/appdata/vaultwarden/config.json` | Konfiguration | 🟡 Wichtig |
+| `/srv/appdata/vaultwarden/attachments/` | Datei-Anhänge | 🟡 Wichtig |
+| `/srv/appdata/vaultwarden/rsa_key*` | RSA-Schlüssel | 🔴 Kritisch |
+
+---
+
+## Sicherheits-Hinweise
+
+| Einstellung | Empfehlung |
+|-------------|------------|
+| SIGNUPS_ALLOWED | `false` (nach Registrierung) |
+| ADMIN_TOKEN | Argon2-Hash verwenden |
+| HTTPS | ✅ Immer über Nginx PM |
+| 2FA | Für alle Benutzer aktivieren |
 
 ---
 

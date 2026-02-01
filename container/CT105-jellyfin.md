@@ -7,10 +7,10 @@
 | **VMID** | 105 |
 | **Hostname** | jellyfin |
 | **IP-Adresse** | 192.168.2.126 |
-| **RAM** | 2048 MB |
-| **CPU** | 2 Cores |
-| **Disk** | 10 GB |
-| **OS** | Debian |
+| **RAM** | 8192 MB |
+| **CPU** | 4 Cores |
+| **Disk** | 32 GB |
+| **OS** | Debian Trixie |
 | **Dienst** | Jellyfin |
 
 ---
@@ -27,7 +27,6 @@ Jellyfin ist ein selbst-gehosteter Media Server für Filme, Serien, Musik und Fo
 |--------|-----|
 | Web-Interface | http://192.168.2.126:8096 |
 | Mit lokalem DNS | http://jellyfin.home:8096 |
-| HTTPS (optional) | http://192.168.2.126:8920 |
 
 ### Zugangsdaten
 
@@ -44,15 +43,15 @@ Jellyfin ist ein selbst-gehosteter Media Server für Filme, Serien, Musik und Fo
 
 ```ini
 arch: amd64
-cores: 2
+cores: 4
 features: nesting=1
 hostname: jellyfin
-memory: 2048
+memory: 8192
 mp0: /mnt/storage/media,mp=/media
 net0: name=eth0,bridge=vmbr0,firewall=1,gw=192.168.2.1,ip=192.168.2.126/24,type=veth
 onboot: 1
 ostype: debian
-rootfs: local-lvm:vm-105-disk-0,size=10GB
+rootfs: local-lvm:vm-105-disk-0,size=32G
 swap: 2048
 unprivileged: 1
 ```
@@ -69,7 +68,7 @@ unprivileged: 1
 
 ```
 /media/
-├── movies/       # Filme
+├── movies/       # Filme (aktuell: 3)
 ├── music/        # Musik
 └── photos/       # Fotos
 ```
@@ -120,20 +119,12 @@ Einfach `http://jellyfin.home:8096` öffnen.
 | Android | Jellyfin (Play Store) |
 | Android TV | Jellyfin (Play Store) |
 
-### Desktop Apps
-
-| Plattform | App |
-|-----------|-----|
-| Windows | Jellyfin Media Player |
-| macOS | Jellyfin Media Player |
-| Linux | Jellyfin Media Player |
-
-### Smart TVs / Streaming
+### Desktop & Smart TV
 
 | Gerät | App |
 |-------|-----|
+| Windows/macOS/Linux | Jellyfin Media Player |
 | Amazon Fire TV | Jellyfin |
-| Roku | Jellyfin |
 | Samsung TV | Jellyfin (Tizen) |
 | LG TV | Jellyfin (webOS) |
 | Kodi | Jellyfin Add-on |
@@ -143,8 +134,6 @@ Einfach `http://jellyfin.home:8096` öffnen.
 ## Hardware-Beschleunigung (optional)
 
 ### Intel Quick Sync (i5-9500T)
-
-Um Hardware-Transcoding zu aktivieren:
 
 ```bash
 # Container stoppen
@@ -171,30 +160,17 @@ pct exec 105 -- ls -la /dev/dri/
 
 ## Verwaltung
 
-### Jellyfin-Status prüfen
-
 ```bash
+# Status prüfen
 pct exec 105 -- systemctl status jellyfin
-```
 
-### Jellyfin neustarten
-
-```bash
+# Neustarten
 pct exec 105 -- systemctl restart jellyfin
-```
 
-### Logs prüfen
+# Logs prüfen
+pct exec 105 -- journalctl -u jellyfin -n 50
 
-```bash
-pct exec 105 -- journalctl -u jellyfin --tail 50
-```
-
-### Bibliothek neu scannen
-
-Im Web-UI: Dashboard → Libraries → (Library) → Scan
-
-Oder per Kommandozeile:
-```bash
+# Bibliothek neu scannen (via API)
 pct exec 105 -- curl -X POST "http://localhost:8096/Library/Refresh" -H "X-Emby-Token: DEIN_API_KEY"
 ```
 
@@ -236,8 +212,7 @@ Mit WireGuard verbinden → Jellyfin ist unter `192.168.2.126:8096` erreichbar.
 ### Option B: Via Nginx Proxy Manager
 
 1. Neue DuckDNS-Subdomain erstellen (z.B. `media-rxfsys.duckdns.org`)
-2. Port 443 weiterleiten (bereits für Vaultwarden)
-3. In Nginx PM neuen Proxy Host erstellen:
+2. In Nginx PM neuen Proxy Host erstellen:
    - Domain: `media-rxfsys.duckdns.org`
    - Forward: `192.168.2.126:8096`
    - SSL aktivieren
@@ -248,42 +223,30 @@ Mit WireGuard verbinden → Jellyfin ist unter `192.168.2.126:8096` erreichbar.
 
 ### Medien werden nicht gefunden
 
-1. **Mount prüfen:**
-   ```bash
-   pct exec 105 -- df -h /media
-   pct exec 105 -- ls -la /media/
-   ```
+```bash
+# Mount prüfen
+pct exec 105 -- df -h /media
+pct exec 105 -- ls -la /media/
 
-2. **Berechtigungen prüfen:**
-   ```bash
-   # Auf dem Host:
-   ls -la /mnt/storage/media/
-   
-   # Muss 101000:101000 sein
-   chown -R 101000:101000 /mnt/storage/media/
-   ```
-
-3. **Bibliothek neu scannen**
+# Berechtigungen prüfen (auf Host)
+ls -la /mnt/storage/media/
+# Muss 101000:101000 sein
+```
 
 ### Transcoding funktioniert nicht
 
-1. **Hardware-Zugriff prüfen:**
-   ```bash
-   pct exec 105 -- ls -la /dev/dri/
-   ```
+```bash
+# Hardware-Zugriff prüfen
+pct exec 105 -- ls -la /dev/dri/
 
-2. **In Jellyfin: Software-Transcoding als Fallback testen**
+# Software-Transcoding als Fallback testen
+```
 
 ### Web-UI nicht erreichbar
 
 ```bash
-# Service läuft?
 pct exec 105 -- systemctl status jellyfin
-
-# Port belegt?
 pct exec 105 -- ss -tlnp | grep 8096
-
-# Service neustarten
 pct exec 105 -- systemctl restart jellyfin
 ```
 
@@ -305,32 +268,14 @@ pct exec 105 -- systemctl restart jellyfin
 vzdump 105 --storage local --compress zstd --mode snapshot
 ```
 
-### Nur Konfiguration sichern
-
-```bash
-pct exec 105 -- tar -czf /root/jellyfin-config.tar.gz /var/lib/jellyfin/
-pct pull 105 /root/jellyfin-config.tar.gz /mnt/storage/backups/jellyfin/
-```
-
 ---
 
 ## Performance-Tipps
 
-1. **Mehr RAM:** Bei großer Bibliothek auf 4 GB erhöhen
+1. **RAM:** 8 GB zugewiesen - ausreichend für große Bibliotheken
 2. **Hardware-Transcoding:** Intel QuickSync aktivieren
-3. **SSD für Metadaten:** Bereits gegeben (Container auf LVM)
+3. **SSD für Metadaten:** Container auf LVM-Thin
 4. **Netzwerk:** Gigabit-Ethernet für 4K-Streaming
-
----
-
-## Pi-hole DNS-Eintrag
-
-Falls noch nicht geschehen:
-
-```bash
-pct exec 101 -- bash -c 'echo "192.168.2.126 jellyfin.home" >> /etc/pihole/custom.list'
-pct exec 101 -- pihole restartdns
-```
 
 ---
 

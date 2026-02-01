@@ -7,10 +7,10 @@
 | **VMID** | 101 |
 | **Hostname** | pi-hole |
 | **IP-Adresse** | 192.168.2.122 |
-| **RAM** | 1024 MB |
-| **CPU** | 1 Core |
+| **RAM** | 2048 MB |
+| **CPU** | 2 Cores |
 | **Disk** | 8 GB |
-| **OS** | Debian |
+| **OS** | Debian Trixie |
 | **Dienst** | Pi-hole v6 |
 
 ---
@@ -45,15 +45,15 @@ Pi-hole dient als:
 
 ```ini
 arch: amd64
-cores: 1
+cores: 2
 features: nesting=1
 hostname: pi-hole
-memory: 1024
+memory: 2048
 net0: name=eth0,bridge=vmbr0,firewall=1,gw=192.168.2.1,hwaddr=BC:24:11:44:B6:42,ip=192.168.2.122/24,type=veth
 onboot: 1
 ostype: debian
 rootfs: local-lvm:vm-101-disk-0,size=8G
-swap: 1024
+swap: 2048
 unprivileged: 1
 ```
 
@@ -92,79 +92,87 @@ Der Speedport Smart 4 Router hat DHCP **deaktiviert**. Pi-hole übernimmt die DH
 
 ```
 192.168.2.120 proxmox.home
-192.168.2.121 nas.home
+192.168.2.120 server.home
+192.168.2.121 samba.home
 192.168.2.122 pihole.home
+192.168.2.122 dns.home
 192.168.2.123 vpn.home
+192.168.2.123 wg.home
+192.168.2.123 wireguard.home
 192.168.2.124 vault.home
+192.168.2.124 vaultwarden.home
+192.168.2.124 bitwarden.home
 192.168.2.125 proxy.home
+192.168.2.125 nginx.home
 192.168.2.126 jellyfin.home
-```
-
----
-
-## Blocklisten
-
-Pi-hole blockiert Werbung und Tracking anhand von Blocklisten. Standardmäßig sind folgende Listen aktiv:
-
-- Steven Black's Unified Hosts
-- Pi-hole Default Lists
-
-### Empfohlene zusätzliche Listen
-
-Über Web-UI → Adlists hinzufügen:
-
-```
-https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
-https://adaway.org/hosts.txt
-https://v.firebog.net/hosts/Easyprivacy.txt
+192.168.2.127 prometheus.home
+192.168.2.128 grafana.home
+192.168.2.129 pbs.home
+192.168.2.130 homeassistant.home
+192.168.2.131 paperless.home
 ```
 
 ---
 
 ## Verwaltung
 
-### Status prüfen
-
 ```bash
+# Status prüfen
 pct exec 101 -- pihole status
-```
 
-### Blocklisten aktualisieren
-
-```bash
+# Blocklisten aktualisieren
 pct exec 101 -- pihole -g
-```
 
-### DNS-Dienst neustarten
-
-```bash
+# DNS-Dienst neustarten
 pct exec 101 -- pihole restartdns
-```
 
-### DHCP-Leases anzeigen
-
-```bash
-pct exec 101 -- cat /etc/pihole/dhcp.leases
-```
-
-### Passwort ändern
-
-```bash
+# Passwort ändern
 pct exec 101 -- pihole -a -p
-```
 
-### Lokalen DNS-Eintrag hinzufügen
-
-```bash
-pct exec 101 -- bash -c 'echo "192.168.2.127 neuerhost.home" >> /etc/pihole/custom.list'
+# Lokalen DNS-Eintrag hinzufügen
+pct exec 101 -- bash -c 'echo "192.168.2.132 neuerhost.home" >> /etc/pihole/custom.list'
 pct exec 101 -- pihole restartdns
+
+# Logs prüfen
+pct exec 101 -- tail -100 /var/log/pihole/pihole.log
+
+# DNS-Test
+pct exec 101 -- dig @127.0.0.1 google.com +short
+pct exec 101 -- dig @127.0.0.1 jellyfin.home +short
 ```
 
-### Pi-hole Logs prüfen
+---
+
+## Pi-hole v6 Besonderheiten
+
+Pi-hole v6 verwendet eine neue Konfigurationsstruktur:
+
+| Alt (v5) | Neu (v6) |
+|----------|----------|
+| `/etc/pihole/setupVars.conf` | `/etc/pihole/pihole.toml` |
+| `/etc/pihole/dhcp.leases` | Integriert in FTL-Datenbank |
+
+### DHCP-Leases anzeigen (v6)
 
 ```bash
-pct exec 101 -- tail -100 /var/log/pihole/pihole.log
+pct exec 101 -- pihole-FTL --dhcp-leases
+# Oder im Web-UI: Settings → DHCP
 ```
+
+---
+
+## Blocklisten
+
+Pi-hole blockiert Werbung und Tracking anhand von Blocklisten. Empfohlene zusätzliche Listen:
+
+```
+https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
+https://adaway.org/hosts.txt
+https://v.firebog.net/hosts/Easyprivacy.txt
+https://v.firebog.net/hosts/AdguardDNS.txt
+```
+
+Hinzufügen: **Web-UI** → **Adlists** → **Add**
 
 ---
 
@@ -206,51 +214,23 @@ pct exec 101 -- pihole status
 
 # DNS-Test vom Host
 nslookup google.com 192.168.2.122
-
-# DNS-Test für lokale Namen
-nslookup nas.home 192.168.2.122
-```
-
-### DHCP funktioniert nicht
-
-```bash
-# DHCP-Leases prüfen
-pct exec 101 -- cat /etc/pihole/dhcp.leases
-
-# DHCP-Status in Pi-hole prüfen
-pct exec 101 -- grep DHCP /etc/pihole/pihole.toml
-
-# Pi-hole komplett neustarten
-pct restart 101
+nslookup jellyfin.home 192.168.2.122
 ```
 
 ### Gerät bekommt keine IP
 
 1. Prüfen ob Router-DHCP wirklich deaktiviert ist
 2. Gerät neu verbinden (WLAN aus/ein)
-3. DHCP-Lease auf dem Gerät erneuern
+3. Pi-hole neustarten: `pct restart 101`
 
 ### Webseite wird fälschlicherweise blockiert
 
-1. Web-UI öffnen → Query Log
-2. Blockierte Domain finden
-3. Auf "Whitelist" klicken
-
-Oder per Kommandozeile:
-
 ```bash
+# Per Whitelist
 pct exec 101 -- pihole -w beispiel.de
+
+# Oder im Web-UI: Query Log → Whitelist
 ```
-
----
-
-## Statistiken
-
-Im Web-Interface verfügbar:
-- Gesamtzahl blockierter Anfragen
-- Top blockierte Domains
-- Top Clients
-- Query-Log mit Echtzeitdaten
 
 ---
 
@@ -260,15 +240,14 @@ Im Web-Interface verfügbar:
 
 | Datei | Beschreibung |
 |-------|--------------|
-| `/etc/pihole/pihole.toml` | Hauptkonfiguration |
+| `/etc/pihole/pihole.toml` | Hauptkonfiguration (v6) |
 | `/etc/pihole/custom.list` | Lokale DNS-Einträge |
 | `/etc/pihole/gravity.db` | Blocklisten-Datenbank |
-| `/etc/pihole/dhcp.leases` | DHCP-Leases |
 
 ### Teleporter-Backup (empfohlen)
 
-1. Web-UI → Settings → Teleporter
-2. "Backup" klicken
+1. **Web-UI** → **Settings** → **Teleporter**
+2. **Backup** klicken
 3. ZIP-Datei herunterladen
 
 ### Container-Backup
