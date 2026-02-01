@@ -1,6 +1,6 @@
 # 🖥️ Home-Server rxfsys
 
-> Proxmox VE Home-Server mit NAS, Pi-hole, WireGuard VPN, Vaultwarden, Nginx Reverse Proxy und Jellyfin Media Server
+> Proxmox VE Home-Server mit 11 LXC-Containern für NAS, DNS/DHCP, VPN, Passwort-Manager, Media-Server, Monitoring, Backup und Smart Home
 
 ---
 
@@ -9,11 +9,11 @@
 | | |
 |---|---|
 | **Hostname** | rxfsys |
-| **OS** | Proxmox VE 9.1.1 |
+| **OS** | Proxmox VE 9.1.4 |
 | **Kernel** | Linux 6.17.2-1-pve (EFI Secure Boot) |
 | **CPU** | Intel Core i5-9500T (6 Cores @ 2.20GHz) |
 | **RAM** | 32 GB DDR4 |
-| **Storage** | 500GB NVMe (System) + 500GB SSD (Daten) + 500GB SSD (Backup) |
+| **Storage** | 500GB NVMe (System) + 500GB SSD (Daten) + 480GB SSD (Backup/USB) |
 | **Netzwerk** | 192.168.2.0/24 |
 
 ---
@@ -35,18 +35,23 @@
 │   ┌──────────────┴────────────────────────────────────────────┐      │
 │   │                    LXC CONTAINER                          │      │
 │   ├───────────────────────────────────────────────────────────┤      │
-│   │  📁 CT 100 - NAS           192.168.2.121  :445            │      │
+│   │  📁 CT 100 - Samba         192.168.2.121  :445            │      │
 │   │  🛡️ CT 101 - Pi-hole       192.168.2.122  :53/:80/:67     │      │
 │   │  🔐 CT 102 - WireGuard     192.168.2.123  :51820/:51821   │      │
 │   │  🔑 CT 103 - Vaultwarden   192.168.2.124  :8081           │      │
 │   │  🌐 CT 104 - Nginx-Proxy   192.168.2.125  :80/:443/:81    │      │
 │   │  🎬 CT 105 - Jellyfin      192.168.2.126  :8096           │      │
+│   │  📊 CT 106 - Prometheus    192.168.2.127  :9090           │      │
+│   │  📈 CT 107 - Grafana       192.168.2.128  :3000           │      │
+│   │  💾 CT 108 - PBS           192.168.2.129  :8007           │      │
+│   │  🏠 CT 109 - Home Assistant 192.168.2.130 :8123           │      │
+│   │  📄 CT 110 - Paperless     192.168.2.131  :8000           │      │
 │   └───────────────────────────────────────────────────────────┘      │
 │                                                                      │
 │   📊 IP-Bereiche:                                                    │
-│   • Server (statisch): 192.168.2.120-126                             │
+│   • Server (statisch): 192.168.2.120-131                             │
 │   • Clients (DHCP):    192.168.2.30-119 (via Pi-hole)                │
-│   • Reserviert:        192.168.2.2-29, 192.168.2.127-254             │
+│   • Reserviert:        192.168.2.2-29, 192.168.2.132-254             │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -63,8 +68,13 @@
 | **WireGuard** | http://vpn.home:51821 | VPN-Verwaltung |
 | **Nginx PM** | http://proxy.home:81 | Reverse Proxy Admin |
 | **Jellyfin** | http://jellyfin.home:8096 | Media Server |
-| **NAS (Windows)** | `\\nas.home\shared` | Dateifreigabe |
-| **NAS (Mac/Linux)** | `smb://nas.home/shared` | Dateifreigabe |
+| **Prometheus** | http://prometheus.home:9090 | Metriken |
+| **Grafana** | http://grafana.home:3000 | Dashboards |
+| **PBS** | https://pbs.home:8007 | Backup Server |
+| **Home Assistant** | http://homeassistant.home:8123 | Smart Home |
+| **Paperless** | http://paperless.home:8000 | Dokumentenverwaltung |
+| **NAS (Windows)** | `\\samba.home\shared` | Dateifreigabe |
+| **NAS (Mac/Linux)** | `smb://samba.home/shared` | Dateifreigabe |
 
 ### Externe Dienste (via DuckDNS)
 
@@ -77,13 +87,18 @@
 
 | Name | IP | Dienst |
 |------|-----|--------|
-| proxmox.home | 192.168.2.120 | Proxmox Host |
-| nas.home | 192.168.2.121 | Samba NAS |
-| pihole.home | 192.168.2.122 | Pi-hole DNS/DHCP |
-| vpn.home | 192.168.2.123 | WireGuard VPN |
-| vault.home | 192.168.2.124 | Vaultwarden |
-| proxy.home | 192.168.2.125 | Nginx Proxy |
+| proxmox.home / server.home | 192.168.2.120 | Proxmox Host |
+| samba.home | 192.168.2.121 | Samba NAS |
+| pihole.home / dns.home | 192.168.2.122 | Pi-hole DNS/DHCP |
+| vpn.home / wireguard.home | 192.168.2.123 | WireGuard VPN |
+| vault.home / vaultwarden.home | 192.168.2.124 | Vaultwarden |
+| proxy.home / nginx.home | 192.168.2.125 | Nginx Proxy |
 | jellyfin.home | 192.168.2.126 | Jellyfin Media |
+| prometheus.home | 192.168.2.127 | Prometheus |
+| grafana.home | 192.168.2.128 | Grafana |
+| pbs.home | 192.168.2.129 | Proxmox Backup Server |
+| homeassistant.home | 192.168.2.130 | Home Assistant |
+| paperless.home | 192.168.2.131 | Paperless-ngx |
 
 ---
 
@@ -91,14 +106,19 @@
 
 | ID | Name | IP | RAM | CPU | Disk | Funktion | Dokumentation |
 |----|------|-----|-----|-----|------|----------|---------------|
-| 100 | nas | .121 | 1 GB | 1 | 15 GB | Samba Dateiserver | [CT100-NAS.md](./CT100-NAS.md) |
-| 101 | pi-hole | .122 | 1 GB | 1 | 8 GB | DNS + DHCP + Werbeblocker | [CT101-PIHOLE.md](./CT101-PIHOLE.md) |
-| 102 | wireguard | .123 | 1 GB | 1 | 8 GB | VPN Server (wg-easy) | [CT102-WIREGUARD.md](./CT102-WIREGUARD.md) |
-| 103 | vaultwarden | .124 | 2 GB | 1 | 8 GB | Passwort-Manager | [CT103-VAULTWARDEN.md](./CT103-VAULTWARDEN.md) |
-| 104 | nginx-proxy | .125 | 1 GB | 1 | 8 GB | Reverse Proxy + SSL | [CT104-NGINX.md](./CT104-NGINX.md) |
-| 105 | jellyfin | .126 | 2 GB | 2 | 10 GB | Media Server | [CT105-JELLYFIN.md](./CT105-JELLYFIN.md) |
+| 100 | samba | .121 | 1 GB | 1 | 15 GB | Samba Dateiserver | [CT100-SAMBA.md](./container/CT100-SAMBA.md) |
+| 101 | pi-hole | .122 | 2 GB | 2 | 8 GB | DNS + DHCP + Werbeblocker | [CT101-PIHOLE.md](./container/CT101-PIHOLE.md) |
+| 102 | wireguard | .123 | 1 GB | 1 | 8 GB | VPN Server (wg-easy) | [CT102-WIREGUARD.md](./container/CT102-WIREGUARD.md) |
+| 103 | vaultwarden | .124 | 2 GB | 1 | 8 GB | Passwort-Manager | [CT103-VAULTWARDEN.md](./container/CT103-VAULTWARDEN.md) |
+| 104 | nginx-proxy | .125 | 1 GB | 1 | 8 GB | Reverse Proxy + SSL | [CT104-NGINX.md](./container/CT104-NGINX.md) |
+| 105 | jellyfin | .126 | 8 GB | 4 | 32 GB | Media Server | [CT105-JELLYFIN.md](./container/CT105-JELLYFIN.md) |
+| 106 | prometheus | .127 | 2 GB | 2 | 15 GB | Metriken-Sammlung | [CT106-PROMETHEUS.md](./container/CT106-PROMETHEUS.md) |
+| 107 | grafana | .128 | 1 GB | 1 | 8 GB | Monitoring-Dashboards | [CT107-GRAFANA.md](./container/CT107-GRAFANA.md) |
+| 108 | pbs | .129 | 2 GB | 2 | 20 GB | Proxmox Backup Server | [CT108-PBS.md](./container/CT108-PBS.md) |
+| 109 | homeassistant | .130 | 2 GB | 2 | 10 GB | Smart Home | [CT109-HOMEASSISTANT.md](./container/CT109-HOMEASSISTANT.md) |
+| 110 | paperless | .131 | 2 GB | 2 | 10 GB | Dokumentenverwaltung | [CT110-PAPERLESS.md](./container/CT110-PAPERLESS.md) |
 
-**Gesamt-Ressourcen:** ~8 GB RAM, 6 CPU Cores, ~57 GB Disk
+**Gesamt-Ressourcen:** ~24 GB RAM, 19 CPU Cores, ~132 GB Disk
 
 ---
 
@@ -106,11 +126,13 @@
 
 ### Disks
 
-| Disk | Modell | Mount | Größe | Verwendung | SMART |
-|------|--------|-------|-------|------------|-------|
-| NVMe | Kingston SA2000M8 | `/` | 500 GB | Proxmox + LVM | ✅ PASSED |
-| SSD | Samsung 860 EVO | `/mnt/storage` | 500 GB | Daten, Medien | ✅ PASSED |
-| SSD | (noch nicht eingebunden) | `/mnt/backups` | 500 GB | Backups | - |
+| Disk | Modell | Schnittstelle | Größe | Mount | Verwendung | SMART |
+|------|--------|---------------|-------|-------|------------|-------|
+| NVMe | Kingston SA2000M8 | NVMe | 465 GB | `/` | Proxmox + LVM | ✅ PASSED |
+| SSD | Samsung 860 EVO | SATA | 458 GB | `/mnt/storage` | Daten, Medien | ✅ PASSED |
+| SSD | Lexar 480GB | USB | 447 GB | `/mnt/backups` | Backups | ⚠️ USB* |
+
+*\* SMART via USB: `smartctl -d sat -H /dev/sdb`*
 
 ### Ordnerstruktur
 
@@ -123,18 +145,28 @@
 │   ├── music/        # Musik
 │   └── photos/       # Fotos
 └── backups/          # Samba-Freigabe: Geräte-Backups
+
+/mnt/backups/         # Backup-SSD (USB)
+└── proxmox/          # PBS Datastore
 ```
 
-### LVM-Thin Pool
+### LVM-Thin Pool Status
 
 ```
-/dev/pve/data (337 GB)
-├── vm-100-disk-0    15 GB   NAS rootfs
-├── vm-101-disk-0     8 GB   Pi-hole rootfs
-├── vm-102-disk-0     8 GB   WireGuard rootfs
-├── vm-103-disk-0     8 GB   Vaultwarden rootfs
-├── vm-104-disk-0     8 GB   Nginx rootfs
-└── vm-105-disk-0    10 GB   Jellyfin rootfs
+LV            Size    Data%   Beschreibung
+─────────────────────────────────────────────
+data          337 GB  ~14%    Thin Pool
+vm-100-disk-0  15 GB   9%     Samba
+vm-101-disk-0   8 GB  16%     Pi-hole
+vm-102-disk-0   8 GB  25%     WireGuard
+vm-103-disk-0   8 GB  23%     Vaultwarden
+vm-104-disk-0   8 GB  38%     Nginx PM
+vm-105-disk-0  32 GB  66%     Jellyfin
+vm-106-disk-0  15 GB  12%     Prometheus
+vm-107-disk-0   8 GB  29%     Grafana
+vm-108-disk-0  20 GB  11%     PBS
+vm-109-disk-0  10 GB  47%     Home Assistant
+vm-110-disk-0  10 GB  41%     Paperless
 ```
 
 ---
@@ -163,6 +195,11 @@
 | Vaultwarden | 8081 | CT 103 | (nur via Nginx) |
 | NPM Admin | 81 | CT 104 | Proxy-Verwaltung |
 | Jellyfin | 8096 | CT 105 | Media Server |
+| Prometheus | 9090 | CT 106 | Metriken |
+| Grafana | 3000 | CT 107 | Dashboards |
+| PBS | 8007 | CT 108 | Backup Server |
+| Home Assistant | 8123 | CT 109 | Smart Home |
+| Paperless | 8000 | CT 110 | Dokumente |
 
 ---
 
@@ -186,9 +223,13 @@ pct enter 100
 for i in $(pct list | awk 'NR>1 {print $1}'); do
   echo -n "CT $i: "; pct exec $i -- hostname -I 2>/dev/null || echo "offline"
 done
+```
 
-# Container-Config anzeigen
-pct config 100
+### Diagnose-Script
+
+```bash
+# Vollständige System-Diagnose
+./scripts/rxfsys-diagnostics.sh
 ```
 
 ### System-Updates
@@ -203,18 +244,24 @@ for i in $(pct list | awk 'NR>1 {print $1}'); do
   pct exec $i -- apt update
   pct exec $i -- apt upgrade -y
 done
+
+# Docker-Images aktualisieren (CT 102, 103, 104)
+for ct in 102 103 104; do
+  pct exec $ct -- bash -c 'cd /srv/appdata/* && docker compose pull && docker compose up -d'
+done
 ```
 
 ### Storage & Health
 
 ```bash
 # Storage-Status
-df -h
+df -h /mnt/storage /mnt/backups
 pvesm status
 
 # SMART-Status
-smartctl -H /dev/sda
-smartctl -H /dev/nvme0n1
+smartctl -H /dev/sda           # Samsung SSD (SATA)
+smartctl -H /dev/nvme0n1       # Kingston NVMe
+smartctl -d sat -H /dev/sdb    # Lexar SSD (USB)
 
 # LVM-Status
 lvs
@@ -223,68 +270,41 @@ lvs
 ### Backup
 
 ```bash
-# Container sichern
+# Container sichern (lokal)
 vzdump 100 --storage local --compress zstd --mode snapshot
 
 # Alle Container sichern
 for i in $(pct list | awk 'NR>1 {print $1}'); do
   vzdump $i --storage local --compress zstd --mode snapshot
 done
-
-# Backup wiederherstellen
-pct restore 999 /var/lib/vz/dump/vzdump-lxc-100-*.tar.zst --storage local-lvm
-```
-
-### Firewall
-
-```bash
-# Status
-pve-firewall status
-
-# Neustart
-pve-firewall restart
-
-# Notfall: Deaktivieren
-pve-firewall stop
-```
-
-### Logs
-
-```bash
-# System-Logs
-journalctl -xe
-
-# Fehler der letzten Boot-Session
-journalctl -p err -b
-
-# Container-Logs
-pct exec 100 -- journalctl -xe
 ```
 
 ---
 
 ## 🛠️ Wartung
 
+### Automatisierte Tasks
+
+| Task | Zeitplan | Beschreibung |
+|------|----------|--------------|
+| DuckDNS Update | */5 * * * * | IP-Aktualisierung |
+| Container-Backup | 03:00 täglich | vzdump aller Container |
+| PBS Prune | wöchentlich | Alte Backups entfernen |
+
 ### Wöchentliche Routine
 
 - [ ] SMART-Status prüfen
 - [ ] Logs auf Fehler checken
 - [ ] Backup-Integrität prüfen
+- [ ] Diagnose-Script ausführen
 
 ### Monatliche Routine
 
-- [ ] Host updaten: `apt update && apt full-upgrade`
+- [ ] Host updaten
 - [ ] Alle Container updaten
-- [ ] Docker-Images aktualisieren (CT 102, 103, 104, 105)
+- [ ] Docker-Images aktualisieren
 - [ ] SSL-Zertifikate prüfen (Nginx PM)
 - [ ] Pi-hole Blocklisten aktualisieren
-
-### Vor größeren Updates
-
-1. Snapshot/Backup aller Container erstellen
-2. Release Notes lesen
-3. Update durchführen
-4. Alle Dienste testen
 
 ---
 
@@ -304,7 +324,7 @@ pve-firewall stop  # Falls Firewall blockiert
 ```bash
 journalctl -xe
 pct config 100
-lxc-start -n 100 -F -l DEBUG  # Debug-Modus
+lxc-start -n 100 -F -l DEBUG
 ```
 
 ### Kein Internet im Container?
@@ -318,50 +338,57 @@ pct exec 100 -- bash -c '
 '
 ```
 
-### Durch Firewall ausgesperrt?
+### DuckDNS IP stimmt nicht?
 
 ```bash
-# Am Server direkt:
-pve-firewall stop
-# Dann Regeln korrigieren und wieder aktivieren
-```
+# Manuell aktualisieren
+curl "https://www.duckdns.org/update?domains=rxfsys,vault-rxfsys&token=DEIN_TOKEN&ip="
 
-### DHCP funktioniert nicht?
-
-```bash
-# Pi-hole DHCP prüfen
-pct exec 101 -- cat /etc/pihole/dhcp.leases
-pct exec 101 -- pihole restartdns
+# Cronjob prüfen
+crontab -l | grep duckdns
 ```
 
 ---
 
 ## 📚 Dokumentation
 
+### Container-Dokumentation
+
 | Datei | Beschreibung |
 |-------|--------------|
-| [README.md](./README.md) | Diese Übersicht |
-| [HAUPTDOKUMENTATION.md](./HAUPTDOKUMENTATION.md) | Ausführliche technische Dokumentation |
-| [CT100-NAS.md](./CT100-NAS.md) | NAS/Samba Container |
-| [CT101-PIHOLE.md](./CT101-PIHOLE.md) | Pi-hole DNS/DHCP |
-| [CT102-WIREGUARD.md](./CT102-WIREGUARD.md) | WireGuard VPN |
-| [CT103-VAULTWARDEN.md](./CT103-VAULTWARDEN.md) | Vaultwarden Passwort-Manager |
-| [CT104-NGINX.md](./CT104-NGINX.md) | Nginx Proxy Manager |
-| [CT105-JELLYFIN.md](./CT105-JELLYFIN.md) | Jellyfin Media Server |
+| [container/CT100-SAMBA.md](./container/CT100-SAMBA.md) | NAS/Samba Container |
+| [container/CT101-PIHOLE.md](./container/CT101-PIHOLE.md) | Pi-hole DNS/DHCP |
+| [container/CT102-WIREGUARD.md](./container/CT102-WIREGUARD.md) | WireGuard VPN |
+| [container/CT103-VAULTWARDEN.md](./container/CT103-VAULTWARDEN.md) | Vaultwarden |
+| [container/CT104-NGINX.md](./container/CT104-NGINX.md) | Nginx Proxy Manager |
+| [container/CT105-JELLYFIN.md](./container/CT105-JELLYFIN.md) | Jellyfin Media Server |
+| [container/CT106-PROMETHEUS.md](./container/CT106-PROMETHEUS.md) | Prometheus |
+| [container/CT107-GRAFANA.md](./container/CT107-GRAFANA.md) | Grafana |
+| [container/CT108-PBS.md](./container/CT108-PBS.md) | Proxmox Backup Server |
+| [container/CT109-HOMEASSISTANT.md](./container/CT109-HOMEASSISTANT.md) | Home Assistant |
+| [container/CT110-PAPERLESS.md](./container/CT110-PAPERLESS.md) | Paperless-ngx |
+
+### Scripts
+
+| Datei | Beschreibung |
+|-------|--------------|
+| [scripts/rxfsys-diagnostics.sh](./scripts/rxfsys-diagnostics.sh) | System-Diagnose |
 
 ---
 
 ## 🔗 Externe Ressourcen
 
 - [Proxmox Wiki](https://pve.proxmox.com/wiki/)
-- [Proxmox Forum](https://forum.proxmox.com/)
 - [Pi-hole Docs](https://docs.pi-hole.net/)
 - [WireGuard](https://www.wireguard.com/)
-- [wg-easy GitHub](https://github.com/wg-easy/wg-easy)
 - [Vaultwarden Wiki](https://github.com/dani-garcia/vaultwarden/wiki)
 - [Nginx Proxy Manager](https://nginxproxymanager.com/)
 - [Jellyfin Docs](https://jellyfin.org/docs/)
+- [Prometheus Docs](https://prometheus.io/docs/)
+- [Grafana Docs](https://grafana.com/docs/)
+- [Home Assistant Docs](https://www.home-assistant.io/docs/)
+- [Paperless-ngx Docs](https://docs.paperless-ngx.com/)
 
 ---
 
-*Server: rxfsys | Letzte Aktualisierung: Januar 2026*
+*Server: rxfsys | Letzte Aktualisierung: Februar 2026*
