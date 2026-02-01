@@ -1,16 +1,16 @@
-# CT 100 - NAS (Samba)
+# CT 100 - Samba (NAS)
 
 ## Übersicht
 
 | Parameter | Wert |
 |-----------|------|
 | **VMID** | 100 |
-| **Hostname** | nas |
+| **Hostname** | samba |
 | **IP-Adresse** | 192.168.2.121 |
 | **RAM** | 1024 MB |
 | **CPU** | 1 Core |
 | **Disk** | 15 GB (rootfs) |
-| **OS** | Debian |
+| **OS** | Debian Trixie |
 | **Dienst** | Samba 4.x |
 
 ---
@@ -31,14 +31,14 @@ Der NAS-Container stellt Netzwerk-Dateifreigaben via SMB/Samba bereit. Alle Frei
 \\192.168.2.121\backups
 
 # Mit lokalem DNS:
-\\nas.home\shared
+\\samba.home\shared
 ```
 
 ### Mac/Linux
 
 ```
 smb://192.168.2.121/shared
-smb://nas.home/shared
+smb://samba.home/shared
 ```
 
 ### Zugangsdaten
@@ -59,7 +59,7 @@ smb://nas.home/shared
 arch: amd64
 cores: 1
 features: nesting=1
-hostname: nas
+hostname: samba
 memory: 1024
 mp0: /mnt/storage/shared,mp=/srv/shared
 mp1: /mnt/storage/media,mp=/srv/media
@@ -82,7 +82,7 @@ unprivileged: 1
 [global]
     workgroup = WORKGROUP
     server string = Home NAS
-    netbios name = NAS
+    netbios name = SAMBA
     server role = standalone server
     security = user
     map to guest = never
@@ -177,39 +177,33 @@ unprivileged: 1
 
 ## Verwaltung
 
-### Samba-Status prüfen
-
 ```bash
+# Samba-Status prüfen
 pct exec 100 -- systemctl status smbd
-```
 
-### Samba neustarten
-
-```bash
+# Samba neustarten
 pct exec 100 -- systemctl restart smbd nmbd
-```
 
-### Konfiguration testen
-
-```bash
+# Konfiguration testen
 pct exec 100 -- testparm -s
+
+# Benutzer verwalten
+pct exec 100 -- smbpasswd homeserver          # Passwort ändern
+pct exec 100 -- useradd -G smbusers neuername # Neuer Benutzer
+pct exec 100 -- smbpasswd -a neuername        # Samba-Passwort setzen
+pct exec 100 -- pdbedit -L                     # Benutzer auflisten
+
+# Aktive Verbindungen
+pct exec 100 -- smbstatus
+
+# Papierkorb leeren
+pct exec 100 -- rm -rf /srv/shared/.recycle/*
+pct exec 100 -- rm -rf /srv/media/.recycle/*
 ```
 
-### Benutzer verwalten
+---
 
-```bash
-# Passwort ändern
-pct exec 100 -- smbpasswd homeserver
-
-# Neuen Benutzer anlegen
-pct exec 100 -- useradd -G smbusers neuername
-pct exec 100 -- smbpasswd -a neuername
-
-# Benutzer auflisten
-pct exec 100 -- pdbedit -L
-```
-
-### Berechtigungen reparieren
+## Berechtigungen reparieren
 
 ```bash
 # Auf dem Proxmox-Host:
@@ -218,6 +212,8 @@ chown -R 100000:100000 /mnt/storage/backups
 chmod -R 2770 /mnt/storage/shared
 chmod -R 2770 /mnt/storage/backups
 ```
+
+**Hinweis:** Bei unprivileged Containern werden UIDs um 100000 verschoben.
 
 ---
 
@@ -268,13 +264,6 @@ ls -la /mnt/storage/shared
 chown -R 100000:100000 /mnt/storage/shared
 ```
 
-### Papierkorb leeren
-
-```bash
-pct exec 100 -- rm -rf /srv/shared/.recycle/*
-pct exec 100 -- rm -rf /srv/media/.recycle/*
-```
-
 ---
 
 ## Backup
@@ -294,4 +283,4 @@ vzdump 100 --storage local --compress zstd --mode snapshot
 
 ---
 
-*CT 100 - NAS | Server rxfsys*
+*CT 100 - Samba | Server rxfsys*
