@@ -1,0 +1,18 @@
+# Vaultwarden - CT 103
+# /srv/appdata/vaultwarden/docker-compose.yml
+
+services:
+  vaultwarden:
+    image: vaultwarden/server:latest
+    container_name: vaultwarden
+    environment:
+      - DOMAIN=https://vault-rxfsys.duckdns.org
+      - ADMIN_TOKEN=DEIN_ADMIN_TOKEN
+      - SIGNUPS_ALLOWED=false
+      - WEBSOCKET_ENABLED=true
+      - LOG_LEVEL=warn
+    volumes:
+      - ./data:/data
+    ports:
+      - "8081:80"
+    restart: unless-stopped
