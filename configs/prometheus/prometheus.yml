@@ -1,0 +1,22 @@
+# Prometheus Konfiguration - CT 106
+# /etc/prometheus/prometheus.yml
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'proxmox-host'
+    static_configs:
+      - targets: ['192.168.2.120:9100']
+        labels:
+          instance: 'rxfsys'
+
+  # Weitere Targets hier hinzufuegen
+  # - job_name: 'pihole'
+  #   static_configs:
+  #     - targets: ['192.168.2.122:9617']
