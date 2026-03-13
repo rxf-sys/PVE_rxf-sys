@@ -22,7 +22,10 @@
 
 - [ ] **Backup-Status** - Backups erfolgreich?
   ```bash
-  ls -la /var/lib/vz/dump/ | tail -20
+  # Nach Umstellung auf backup-ssd:
+  ls -la /mnt/backups/dump/ | tail -20
+  # Pruefen ob Backup-SSD gemountet ist:
+  mountpoint -q /mnt/backups && echo "OK" || echo "NICHT GEMOUNTET!"
   ```
 
 - [ ] **Logs pruefen** - Fehler vorhanden?
@@ -45,7 +48,9 @@
 ```bash
 echo "=== Container ===" && pct list && \
 echo "=== Disk ===" && df -h / /mnt/storage /mnt/backups && \
+echo "=== Backup-Mount ===" && (mountpoint -q /mnt/backups && echo "OK" || echo "NICHT GEMOUNTET!") && \
 echo "=== RAM ===" && free -h && \
+echo "=== Container-RAM ===" && for i in $(pct list | awk 'NR>1 {print $1}'); do NAME=$(pct config $i | grep hostname | awk '{print $2}'); MEM=$(pct exec $i -- free -m 2>/dev/null | awk '/Mem:/{print $3}'); echo "  CT $i ($NAME): ${MEM:-offline} MB"; done && \
 echo "=== SMART ===" && smartctl -H /dev/sda 2>/dev/null | grep -i result && \
 echo "=== Fehler (letzte Woche) ===" && journalctl -p err --since "1 week ago" --no-pager | wc -l && echo "Fehlereintraege"
 ```
