@@ -2,6 +2,35 @@
 
 Alle wichtigen Aenderungen am Server und an der Dokumentation.
 
+## [2026-03-13] - Security-Hardening und Best-Practice Audit
+
+### Geaendert
+- SSH-Haertung: PermitRootLogin prohibit-password, PasswordAuthentication no
+- Fail2ban aktiviert mit SSH-Jail und Proxmox-Jail (Port 8006)
+- 2FA (TOTP) fuer Proxmox Web-UI aktiviert
+- Backup-Storage von `local` (System-SSD) auf `backup-ssd` (/mnt/backups) umgestellt
+- Backup-Retention erweitert: keep-daily=7, keep-weekly=4, keep-monthly=3
+- Swap auf 0 fuer alle 12 Container gesetzt
+- keyctl fuer alle Docker-Container aktiviert (CT 102, 103, 104, 110, 111)
+- CPU-Limits fuer alle Container konfiguriert
+- Firewall-Regeln fuer CT 105 (Jellyfin), 109 (Home Assistant), 110 (Paperless), 111 (Finance) erstellt
+- Alte Kernel entfernt (nur noch 6.17.13-1-pve)
+- PBS-Repo Suite von bookworm auf trixie korrigiert
+- CT 111 (Finance) in Netzwerk-Diagramm und Container-Uebersicht aufgenommen
+
+### Dokumentation aktualisiert
+- 09-wartung/proxmox-best-practices.md: Alle erledigten Punkte als "Erledigt" markiert
+- 08-sicherheit/haertung.md: SSH und Fail2ban Status aktualisiert, Proxmox-Jail dokumentiert
+- 08-sicherheit/2fa.md: 2FA-Status auf "Aktiv" gesetzt
+- 08-sicherheit/README.md: Sicherheits-Uebersicht aktualisiert
+- 03-netzwerk/firewall.md: Firewall-Regeln fuer alle Container dokumentiert
+- 06-backup/vzdump-jobs.md: Storage und Retention aktualisiert
+- README.md: Proxmox-Version, Kernel, CT 111 hinzugefuegt
+
+### Audit-Ergebnis
+- Vorher: 38/50 PASS, 3 WARN, 9 FAIL
+- Nachher: 48/50 PASS, 2 WARN, 0 FAIL
+
 ## [2026-03-12] - Dokumentationsstruktur
 
 ### Hinzugefuegt

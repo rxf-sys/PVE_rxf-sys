@@ -29,10 +29,10 @@ Vaultwarden unterstuetzt 2FA fuer Benutzer-Accounts:
 2. Einstellungen -> Sicherheit -> Zwei-Faktor-Authentifizierung
 3. Authenticator-App aktivieren
 
-## Empfehlung
+## Status
 
-| Dienst | 2FA | Prioritaet |
-|--------|-----|------------|
-| Proxmox Web-UI | TOTP | Empfohlen |
-| Vaultwarden | TOTP | Dringend empfohlen |
-| SSH | Key-basiert (kein Passwort) | Empfohlen |
+| Dienst | 2FA | Status |
+|--------|-----|--------|
+| Proxmox Web-UI | TOTP | Aktiv (13.03.2026) |
+| Vaultwarden | TOTP | Empfohlen |
+| SSH | Key-basiert (kein Passwort) | Aktiv (13.03.2026) |

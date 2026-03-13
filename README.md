@@ -9,8 +9,8 @@
 | | |
 |---|---|
 | **Hostname** | rxfsys |
-| **OS** | Proxmox VE 9.1.4 |
-| **Kernel** | Linux 6.17.2-1-pve (EFI Secure Boot) |
+| **OS** | Proxmox VE 9.1.6 |
+| **Kernel** | Linux 6.17.13-1-pve (EFI Secure Boot) |
 | **CPU** | Intel Core i5-9500T (6 Cores @ 2.20GHz) |
 | **RAM** | 32 GB DDR4 |
 | **Storage** | 500GB NVMe (System) + 500GB SSD (Daten) + 480GB SSD (Backup/USB) |
@@ -67,12 +67,13 @@
 │   │  CT 108 - PBS           192.168.2.129  :8007              │      │
 │   │  CT 109 - Home Assist.  192.168.2.130  :8123              │      │
 │   │  CT 110 - Paperless     192.168.2.131  :8000              │      │
+│   │  CT 111 - Finance       192.168.2.132  :8080              │      │
 │   └───────────────────────────────────────────────────────────┘      │
 │                                                                      │
 │   IP-Bereiche:                                                       │
-│   • Server (statisch): 192.168.2.120-131                             │
+│   • Server (statisch): 192.168.2.120-132                             │
 │   • Clients (DHCP):    192.168.2.30-119 (via Pi-hole)                │
-│   • Reserviert:        192.168.2.2-29, 192.168.2.132-254             │
+│   • Reserviert:        192.168.2.2-29, 192.168.2.133-254             │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -93,8 +94,9 @@
 | 108 | pbs | .129 | 2 GB | 2 | 20 GB | Proxmox Backup Server | [Doku](05-container/lxc/CT108-pbs.md) |
 | 109 | homeassistant | .130 | 2 GB | 2 | 10 GB | Smart Home | [Doku](05-container/lxc/CT109-homeassistant.md) |
 | 110 | paperless | .131 | 2 GB | 2 | 10 GB | Dokumentenverwaltung | [Doku](05-container/lxc/CT110-paperless.md) |
+| 111 | finance | .132 | 3 GB | 2 | 10 GB | Finanzverwaltung | - |
 
-**Gesamt-Ressourcen:** ~24 GB RAM, 19 CPU Cores, ~132 GB Disk
+**Gesamt-Ressourcen:** ~27 GB RAM, 21 CPU Cores, ~142 GB Disk
 
 ---
 
@@ -114,6 +116,7 @@
 | **PBS** | https://pbs.home:8007 | Backup Server |
 | **Home Assistant** | http://homeassistant.home:8123 | Smart Home |
 | **Paperless** | http://paperless.home:8000 | Dokumentenverwaltung |
+| **Finance** | http://finance.home:8080 | Finanzverwaltung |
 | **NAS (Windows)** | `\\samba.home\shared` | Dateifreigabe |
 | **NAS (Mac/Linux)** | `smb://samba.home/shared` | Dateifreigabe |
 

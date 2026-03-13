@@ -9,58 +9,60 @@ Konfiguriert ueber Proxmox Web-UI: Datacenter -> Backup
 | Zeitplan | Taeglich um 03:00 |
 | Modus | Snapshot |
 | Komprimierung | zstd |
-| Storage | local (oder PBS) |
+| Storage | backup-ssd (`/mnt/backups`) |
 | Container | Alle |
 
 ### Konfigurationsdatei
 
-`/etc/pve/vzdump.cron` oder `/etc/pve/jobs.cfg`
+`/etc/pve/jobs.cfg`
 
 ```
-# Beispiel vzdump.conf
 vzdump: backup-all
     enabled 1
     schedule 03:00
     all 1
-    storage local
+    storage backup-ssd
     compress zstd
     mode snapshot
     mailnotification always
     mailto root@localhost
+    prune-backups keep-daily=7,keep-weekly=4,keep-monthly=3
 ```
 
 ## Retention Policy
 
 | Parameter | Wert | Beschreibung |
 |-----------|------|--------------|
-| keep-daily | 3 | Letzte 3 Tages-Backups |
-| keep-weekly | 2 | Letzte 2 Wochen-Backups |
-| keep-monthly | 1 | Letztes Monats-Backup |
+| keep-daily | 7 | Letzte 7 Tages-Backups |
+| keep-weekly | 4 | Letzte 4 Wochen-Backups |
+| keep-monthly | 3 | Letzte 3 Monats-Backups |
+
+> **Speicherbedarf:** 14 Versionen x ~20 GB = ~280 GB. Backup-SSD hat 440 GB.
 
 ## Manuelle Backups
 
 ```bash
 # Einzelnen Container sichern
-vzdump 100 --storage local --compress zstd --mode snapshot
+vzdump 100 --storage backup-ssd --compress zstd --mode snapshot
 
 # Alle Container sichern
 for i in $(pct list | awk 'NR>1 {print $1}'); do
   echo "=== Backup CT $i ==="
-  vzdump $i --storage local --compress zstd --mode snapshot
+  vzdump $i --storage backup-ssd --compress zstd --mode snapshot
 done
 
 # Backup mit Notizen
-vzdump 103 --storage local --compress zstd --mode snapshot --notes-template "Vor Update"
+vzdump 103 --storage backup-ssd --compress zstd --mode snapshot --notes-template "Vor Update"
 ```
 
 ## Backup-Speicherort
 
 ```bash
-# Standard-Speicherort fuer vzdump
-ls -la /var/lib/vz/dump/
+# Backup-SSD (primaerer Speicherort)
+ls -la /mnt/backups/dump/
 
 # Backup-Groessen pruefen
-du -sh /var/lib/vz/dump/*
+du -sh /mnt/backups/dump/*
 ```
 
 ## Backup-Benachrichtigungen

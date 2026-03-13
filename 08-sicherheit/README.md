@@ -13,10 +13,11 @@ Security-Konzept fuer den Proxmox Server und alle Dienste.
 
 | Bereich | Status | Beschreibung |
 |---------|--------|--------------|
-| SSH | Konfiguriert | Key-basiert, Root-Login |
-| Firewall | Aktiv | Proxmox Firewall |
+| SSH | Gehaertet | Key-only, kein Passwort (`prohibit-password`) |
+| Firewall | Aktiv | Proxmox Firewall, alle 12 Container mit Regeln |
+| Fail2Ban | Aktiv | SSH-Jail + Proxmox-Jail (Port 8006) |
 | SSL/TLS | Aktiv | Let's Encrypt via Nginx PM |
 | VPN | Aktiv | WireGuard (extern) |
-| 2FA | <!-- Status --> | Proxmox Web-UI |
+| 2FA | Aktiv | Proxmox Web-UI (TOTP) |
 | Passwort-Manager | Aktiv | Vaultwarden (extern via HTTPS) |
 | DNS-Filterung | Aktiv | Pi-hole Werbeblocker |
