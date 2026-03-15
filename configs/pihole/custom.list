@@ -8,8 +8,8 @@
 192.168.2.124 vault.home vaultwarden.home
 192.168.2.125 proxy.home nginx.home
 192.168.2.126 jellyfin.home
-192.168.2.127 prometheus.home
-192.168.2.128 grafana.home
+192.168.2.127 prometheus.home monitoring.home grafana.home
 192.168.2.129 pbs.home
 192.168.2.130 homeassistant.home
 192.168.2.131 paperless.home
+192.168.2.132 finance.home finanzguru.home

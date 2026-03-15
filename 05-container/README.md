@@ -18,13 +18,15 @@ Uebersicht aller virtuellen Maschinen und LXC-Container auf dem Proxmox Server.
 | 103 | vaultwarden | .124 | 2 GB | 1 | 8 GB | Passwort-Manager | [CT103](lxc/CT103-vaultwarden.md) |
 | 104 | nginx-proxy | .125 | 1 GB | 1 | 8 GB | Reverse Proxy + SSL | [CT104](lxc/CT104-nginx.md) |
 | 105 | jellyfin | .126 | 8 GB | 4 | 32 GB | Media Server | [CT105](lxc/CT105-jellyfin.md) |
-| 106 | prometheus | .127 | 2 GB | 2 | 15 GB | Metriken-Sammlung | [CT106](lxc/CT106-prometheus.md) |
-| 107 | grafana | .128 | 1 GB | 1 | 8 GB | Monitoring-Dashboards | [CT107](lxc/CT107-grafana.md) |
+| 106 | monitoring | .127 | 2 GB | 2 | 15 GB | Prometheus + Grafana | [CT106](lxc/CT106-monitoring.md) |
 | 108 | pbs | .129 | 2 GB | 2 | 20 GB | Proxmox Backup Server | [CT108](lxc/CT108-pbs.md) |
 | 109 | homeassistant | .130 | 2 GB | 2 | 10 GB | Smart Home | [CT109](lxc/CT109-homeassistant.md) |
 | 110 | paperless | .131 | 2 GB | 2 | 10 GB | Dokumentenverwaltung | [CT110](lxc/CT110-paperless.md) |
+| 111 | finance | .132 | 3 GB | 2 | 10 GB | Finanzguru (Orynthia) | [CT111](lxc/CT111-finanzguru.md) |
 
-**Gesamt:** ~24 GB RAM, 19 CPU Cores, ~132 GB Disk
+**Gesamt:** ~26 GB RAM, 20 CPU Cores, ~134 GB Disk (11 Container)
+
+> **Hinweis:** CT 107 (Grafana) wurde mit CT 106 zusammengelegt → CT 106 "monitoring"
 
 ## VMs
 
@@ -39,11 +41,12 @@ Aktuell werden **keine VMs** verwendet. Alle Dienste laufen als LXC-Container.
 | WireGuard | http://vpn.home:51821 |
 | Nginx PM | http://proxy.home:81 |
 | Jellyfin | http://jellyfin.home:8096 |
-| Prometheus | http://prometheus.home:9090 |
 | Grafana | http://grafana.home:3000 |
+| Prometheus | http://monitoring.home:9090 |
 | PBS | https://pbs.home:8007 |
 | Home Assistant | http://homeassistant.home:8123 |
 | Paperless | http://paperless.home:8000 |
+| Finanzguru | http://finance.home:8080 |
 | Vaultwarden | https://vault-rxfsys.duckdns.org |
 
 ## Schnellbefehle

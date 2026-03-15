@@ -1,4 +1,4 @@
-# Prometheus Konfiguration - CT 106
+# Prometheus Konfiguration - CT 106 (monitoring)
 # /etc/prometheus/prometheus.yml
 
 global:
@@ -14,9 +14,21 @@ scrape_configs:
     static_configs:
       - targets: ['192.168.2.120:9100']
         labels:
-          instance: 'rxfsys'
+          instance: 'rxfsys-host'
 
-  # Weitere Targets hier hinzufuegen
-  # - job_name: 'pihole'
-  #   static_configs:
-  #     - targets: ['192.168.2.122:9617']
+  - job_name: 'containers'
+    static_configs:
+      - targets:
+          - '192.168.2.121:9100'  # CT 100 - Samba
+          - '192.168.2.122:9100'  # CT 101 - Pi-hole
+          - '192.168.2.123:9100'  # CT 102 - WireGuard
+          - '192.168.2.124:9100'  # CT 103 - Vaultwarden
+          - '192.168.2.125:9100'  # CT 104 - Nginx PM
+          - '192.168.2.126:9100'  # CT 105 - Jellyfin
+          - 'localhost:9100'      # CT 106 - Monitoring (lokal)
+          - '192.168.2.129:9100'  # CT 108 - PBS
+          - '192.168.2.130:9100'  # CT 109 - Home Assistant
+          - '192.168.2.131:9100'  # CT 110 - Paperless
+          - '192.168.2.132:9100'  # CT 111 - Finanzguru
+        labels:
+          environment: 'homeserver'

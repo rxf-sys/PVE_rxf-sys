@@ -1,5 +1,6 @@
-# Grafana Datenquellen - CT 107
+# Grafana Datenquellen - CT 106 (monitoring)
 # /etc/grafana/provisioning/datasources/datasources.yml
+# Nach Zusammenlegung: Prometheus ist jetzt lokal auf demselben Container
 
 apiVersion: 1
 
@@ -7,6 +8,6 @@ datasources:
   - name: Prometheus
     type: prometheus
     access: proxy
-    url: http://192.168.2.127:9090
+    url: http://localhost:9090
     isDefault: true
     editable: true

@@ -25,7 +25,7 @@
 | DLNA | 1900 | CT 105 | DLNA Discovery (UDP) |
 | Jellyfin Discovery | 7359 | CT 105 | Client Discovery (UDP) |
 | Prometheus | 9090 | CT 106 | Metriken |
-| Grafana | 3000 | CT 107 | Dashboards |
+| Grafana | 3000 | CT 106 | Dashboards (zusammengelegt) |
 | PBS | 8007 | CT 108 | Backup Server |
 | Home Assistant | 8123 | CT 109 | Smart Home |
 | mDNS | 5353 | CT 109 | Geraeteerkennung (UDP) |
@@ -67,8 +67,7 @@ Alle Container haben individuelle Firewall-Regeln unter `/etc/pve/firewall/<CTID
 | 103 | DROP | ACCEPT | 8081/tcp (nur von 192.168.2.125) |
 | 104 | DROP | ACCEPT | 80/tcp, 443/tcp, 81/tcp |
 | 105 | DROP | ACCEPT | 8096/tcp, 1900/udp, 7359/udp |
-| 106 | DROP | ACCEPT | 9090/tcp |
-| 107 | DROP | ACCEPT | 3000/tcp |
+| 106 | DROP | ACCEPT | 9090/tcp, 3000/tcp, 9100/tcp |
 | 108 | DROP | ACCEPT | 8007/tcp |
 | 109 | DROP | ACCEPT | 8123/tcp, 5353/udp |
 | 110 | DROP | ACCEPT | 8000/tcp |
