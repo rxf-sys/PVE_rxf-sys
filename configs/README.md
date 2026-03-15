@@ -13,5 +13,7 @@ Anonymisierte Kopien wichtiger Konfigurationsdateien.
 | [wireguard/](wireguard/) | WireGuard Docker Compose |
 | [vaultwarden/](vaultwarden/) | Vaultwarden Docker Compose |
 | [nginx/](nginx/) | Nginx Proxy Manager Docker Compose |
+| [paperless/](paperless/) | Paperless-ngx Docker Compose |
+| [finanzguru/](finanzguru/) | Finanzguru Docker Compose |
 | [prometheus/](prometheus/) | Prometheus Scrape-Config |
 | [grafana/](grafana/) | Grafana Datenquellen |

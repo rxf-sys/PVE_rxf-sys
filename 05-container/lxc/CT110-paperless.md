@@ -62,18 +62,23 @@ unprivileged: 1
 **Datei (im Container):** `/srv/appdata/paperless/docker-compose.yml`
 
 ```yaml
-version: "3.8"
-
 services:
   broker:
-    image: redis:7
+    image: redis:7-alpine
     container_name: paperless-redis
     restart: unless-stopped
     volumes:
       - redisdata:/data
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   db:
-    image: postgres:15
+    image: postgres:15-alpine
     container_name: paperless-db
     restart: unless-stopped
     volumes:
@@ -81,15 +86,24 @@ services:
     environment:
       POSTGRES_DB: paperless
       POSTGRES_USER: paperless
-      POSTGRES_PASSWORD: paperless
+      POSTGRES_PASSWORD: DEIN_DB_PASSWORT
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paperless"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
   webserver:
-    image: ghcr.io/paperless-ngx/paperless-ngx:latest
-    container_name: paperless
+    image: ghcr.io/paperless-ngx/paperless-ngx:2.14
+    container_name: paperless-ngx
     restart: unless-stopped
     depends_on:
-      - db
-      - broker
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
     ports:
       - "8000:8000"
     volumes:
@@ -101,15 +115,19 @@ services:
       PAPERLESS_REDIS: redis://broker:6379
       PAPERLESS_DBHOST: db
       PAPERLESS_DBUSER: paperless
-      PAPERLESS_DBPASS: paperless
+      PAPERLESS_DBPASS: DEIN_DB_PASSWORT
       PAPERLESS_DBNAME: paperless
       PAPERLESS_OCR_LANGUAGE: deu+eng
       PAPERLESS_TIME_ZONE: Europe/Berlin
-      PAPERLESS_SECRET_KEY: CHANGE_ME_TO_RANDOM_STRING
+      PAPERLESS_SECRET_KEY: DEIN_SECRET_KEY
       PAPERLESS_ADMIN_USER: admin
-      PAPERLESS_ADMIN_PASSWORD: CHANGE_ME
-      USERMAP_UID: 1000
-      USERMAP_GID: 1000
+      PAPERLESS_ADMIN_PASSWORD: DEIN_ADMIN_PASSWORT
+      PAPERLESS_URL: http://paperless.home:8000
+      PAPERLESS_CONSUMER_POLLING: 60
+      PAPERLESS_CONSUMER_DELETE_DUPLICATES: "true"
+      PAPERLESS_FILENAME_FORMAT: "{created_year}/{correspondent}/{title}"
+    security_opt:
+      - no-new-privileges:true
 
 volumes:
   data:

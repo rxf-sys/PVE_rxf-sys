@@ -2,6 +2,38 @@
 
 Alle wichtigen Aenderungen am Server und an der Dokumentation.
 
+## [2026-03-15] - Container Best-Practice Konfiguration
+
+### Docker Hardening
+- Docker Compose Files: Image-Pinning (kein `:latest` mehr), Health Checks, `no-new-privileges`
+- WireGuard: Migration von `weejewel/wg-easy` → `ghcr.io/wg-easy/wg-easy:14` vorbereitet
+- Vaultwarden: Gepinnt auf `vaultwarden/server:1.33.2`
+- Nginx PM: Gepinnt auf `jc21/nginx-proxy-manager:2.13.2`
+- Paperless: Gepinnt auf `ghcr.io/paperless-ngx/paperless-ngx:2.14`, Alpine-Images fuer DB/Redis
+- Paperless: DB-Passwort-Mismatch identifiziert und Fix dokumentiert
+
+### Container OS Hardening
+- Script `container-hardening.sh`: Postfix entfernen, unattended-upgrades installieren
+- Script `docker-update.sh`: Image-Pinning und Update-Befehle fuer alle Docker-Container
+
+### Strukturaenderungen
+- Grafana + Prometheus zusammengelegt: CT 106 "monitoring" (CT 107 aufgeloest)
+- Script `monitoring-migration.sh`: Automatische Migration mit Backup und Rollback
+- Datasource auf `localhost:9090` umgestellt (Prometheus + Grafana auf demselben Container)
+- Prometheus Scrape-Config: Alle 11 Container als Targets
+
+### Neue Dokumentation
+- `CT106-monitoring.md`: Neues Dokument fuer zusammengelegten Monitoring-Container
+- `CT111-finanzguru.md`: Dokumentation fuer Orynthia/Finanzguru Anwendung
+- `configs/paperless/docker-compose.yml`: Paperless Best-Practice Compose
+- `configs/finanzguru/docker-compose.yml`: Finanzguru Best-Practice Compose
+
+### Aktualisierte Dokumentation
+- Container-README: CT 107 entfernt, CT 106 als "monitoring", CT 111 mit Doku-Link
+- Firewall: CT 106 mit Ports 9090+3000+9100, CT 107 entfernt
+- DNS: `grafana.home` + `monitoring.home` → 192.168.2.127, `finance.home` hinzugefuegt
+- README: Netzwerk-Diagramm, Container-Tabelle, URLs aktualisiert
+
 ## [2026-03-13] - Security-Hardening und Best-Practice Audit
 
 ### Geaendert
