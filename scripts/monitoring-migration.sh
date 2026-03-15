@@ -46,9 +46,10 @@ echo ""
 echo -e "${BOLD}[2/8] Grafana auf CT 106 installieren${NC}"
 
 pct exec 106 -- bash -c '
-    apt install -y apt-transport-https software-properties-common
+    apt update
+    apt install -y apt-transport-https gnupg
     mkdir -p /etc/apt/keyrings/
-    wget -q -O - https://apt.grafana.com/gpg.key | gpg --dearmor > /etc/apt/keyrings/grafana.gpg
+    wget -q -O - https://apt.grafana.com/gpg.key | gpg --dearmor -o /etc/apt/keyrings/grafana.gpg
     echo "deb [signed-by=/etc/apt/keyrings/grafana.gpg] https://apt.grafana.com stable main" > /etc/apt/sources.list.d/grafana.list
     apt update
     apt install -y grafana
