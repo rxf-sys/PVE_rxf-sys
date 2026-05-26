@@ -1,0 +1,9 @@
+# Pfad auf Host: /etc/systemd/system/backup-host-config.service
+[Unit]
+Description=Backup PVE Host Config (local tar.zst)
+After=network-online.target /mnt/storage
+Requires=mnt-storage.mount
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/backup-host-config.sh

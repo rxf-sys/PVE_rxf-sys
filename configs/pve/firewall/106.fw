@@ -1,0 +1,11 @@
+# CT 106 jellyfin
+[OPTIONS]
+enable: 1
+policy_in: DROP
+policy_out: ACCEPT
+
+[RULES]
+IN ACCEPT -source 192.168.2.0/24 -p tcp -dport 8096 -log nolog
+IN ACCEPT -source 192.168.2.0/24 -p udp -dport 1900 -log nolog
+IN ACCEPT -source 192.168.2.0/24 -p udp -dport 7359 -log nolog
+IN ACCEPT -p icmp

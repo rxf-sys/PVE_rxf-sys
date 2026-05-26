@@ -1,32 +1,23 @@
-# Sensible Daten
-*.env
-.env*
-secrets/
-**/secrets/
+# Secrets / Tokens
+*.pw
 *.key
 *.pem
-*.crt
-*.pfx
+.env
+.env.*
+!.env.example
 
-# Tokens & Passwörter
-**/token.txt
-**/password.txt
-**/credentials*
-
-# Backup-Dateien
-*.tar.gz
-*.tar.zst
-*.vma
-*.vma.zst
+# Logs
+*.log
 
 # OS
 .DS_Store
 Thumbs.db
-*.swp
-*.swo
-*~
 
-# IDE
+# Editor
 .vscode/
 .idea/
-*.code-workspace
+
+# Local backups
+*.tar.zst
+*.tar.gz
+*.bak

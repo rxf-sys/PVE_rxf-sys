@@ -1,38 +1,19 @@
-# Monitoring
+# 07 — Monitoring
 
-Ueberwachung des Proxmox Servers und aller Dienste.
+## Komponenten
 
-| Dokument | Beschreibung |
-|----------|--------------|
-| [prometheus-grafana.md](prometheus-grafana.md) | Prometheus + Grafana Setup |
-| [alerts.md](alerts.md) | Benachrichtigungen und Alerting |
+1. **Uptime Kuma** (CT 103) — externe Health-Checks, https://monitor.rxf-sys.de — siehe [uptime-kuma.md](uptime-kuma.md)
+2. **Notifications via Strato SMTP** — alle PVE+PBS-Notifications → info@rxf-sys.de — siehe [notifications.md](notifications.md)
+3. **Admin-Dashboard** (CT 101) — selbstgebautes Dashboard für PVE/PBS/UniFi/Cloudflare Status — siehe [admin-dashboard.md](admin-dashboard.md)
 
-## Monitoring-Stack
+## Was wird beobachtet
 
-```
-┌─────────────┐     ┌──────────────┐     ┌───────────┐
-│  Proxmox    │     │  Container   │     │  Dienste  │
-│  Host       │────►│  Metriken    │────►│  Status   │
-└──────┬──────┘     └──────┬───────┘     └─────┬─────┘
-       │                   │                   │
-       └───────────────────┴───────────────────┘
-                           │
-                    ┌──────▼──────┐
-                    │ CT 106      │
-                    │ Prometheus  │
-                    │ :9090       │
-                    └──────┬──────┘
-                           │
-                    ┌──────▼──────┐
-                    │ CT 107      │
-                    │ Grafana     │
-                    │ :3000       │
-                    └─────────────┘
-```
-
-## Dienste
-
-| Dienst | CT | IP | Port | URL |
-|--------|-----|-----|------|-----|
-| Prometheus | 106 | 192.168.2.127 | 9090 | http://prometheus.home:9090 |
-| Grafana | 107 | 192.168.2.128 | 3000 | http://grafana.home:3000 |
+| Bereich          | Tool                | Cadenz       |
+|------------------|---------------------|--------------|
+| Backup-Erfolg    | vzdump → PBS-Mail   | tägliche Mail bei Fehler |
+| GC/Prune/Verify  | PBS-Notifications   | bei Failure  |
+| Service-Ports    | Uptime Kuma         | jede Minute  |
+| Public-URLs      | Uptime Kuma         | jede Minute  |
+| Host-Metriken    | PVE-UI (RRD)        | live         |
+| SMART            | manuell (siehe [../09-wartung/](../09-wartung/)) | monatlich |
+| dmesg-Errors     | manuell             | wöchentlich  |

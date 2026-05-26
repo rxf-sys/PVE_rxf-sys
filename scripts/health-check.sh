@@ -1,60 +1,58 @@
 #!/bin/bash
-# =============================================================================
-# Taeglicher Health-Check
-# Server: rxfsys
-# =============================================================================
+# Read-only Health-Check für rxf-sys.
+# Liefert Markdown-Report auf stdout. Kein State-Change.
 
-echo "=== Health-Check rxfsys - $(date) ==="
-echo ""
+set +H
+echo "# rxf-sys Health Check — $(date -Iseconds)"
+echo
 
-# 1. System
-echo "--- System ---"
-echo "Uptime: $(uptime -p)"
-echo "Load:   $(cat /proc/loadavg | awk '{print $1, $2, $3}')"
-echo ""
+echo "## Uptime + Kernel"
+uptime
+echo
+uname -r
+pveversion | head -1
+echo
 
-# 2. RAM
-echo "--- RAM ---"
-free -h | grep -E "Mem|Swap"
-echo ""
-
-# 3. Disk
-echo "--- Disk ---"
-df -h / /mnt/storage /mnt/backups 2>/dev/null | grep -v tmpfs
-echo ""
-
-# 4. LVM Thin Pool
-echo "--- LVM Thin Pool ---"
-lvs pve/data --noheadings -o lv_name,lv_size,data_percent 2>/dev/null || echo "LVM nicht verfuegbar"
-echo ""
-
-# 5. SMART
-echo "--- SMART-Status ---"
-for disk in /dev/sda /dev/nvme0n1; do
-    if [ -e "$disk" ]; then
-        RESULT=$(smartctl -H $disk 2>/dev/null | grep -i "result\|overall" | head -1)
-        echo "$disk: ${RESULT:-N/A}"
-    fi
-done
-# USB-SSD
-if [ -e /dev/sdb ]; then
-    RESULT=$(smartctl -d sat -H /dev/sdb 2>/dev/null | grep -i "result\|overall" | head -1)
-    echo "/dev/sdb (USB): ${RESULT:-N/A}"
-fi
-echo ""
-
-# 6. Container
-echo "--- Container-Status ---"
+echo "## Guests"
 pct list
-echo ""
+echo
+qm list
+echo
 
-# 7. Fehler
-echo "--- Fehler (letzte 24h) ---"
-ERROR_COUNT=$(journalctl -p err --since "24 hours ago" --no-pager 2>/dev/null | wc -l)
-echo "Fehlereintraege: $ERROR_COUNT"
-if [ "$ERROR_COUNT" -gt 0 ]; then
-    journalctl -p err --since "24 hours ago" --no-pager 2>/dev/null | tail -10
-fi
-echo ""
+echo "## Storage"
+pvesm status
+echo
 
-echo "=== Health-Check abgeschlossen ==="
+echo "## Disk"
+df -hT | grep -vE 'tmpfs|udev|efivars|fuse'
+echo
+
+echo "## Failed Services (sollte leer sein)"
+systemctl --failed --no-legend
+echo
+
+echo "## Firewall"
+pve-firewall status
+echo
+
+echo "## Backup-Job"
+grep -E '^vzdump|schedule|all|exclude' /etc/pve/jobs.cfg
+echo
+
+echo "## Updates"
+echo "Host: $(apt list --upgradable 2>/dev/null | grep -v '^Listing' | wc -l) upgradable packages"
+echo
+
+echo "## PBS Datastore"
+pvesm list pbs 2>&1 | wc -l | awk '{print $1" Snapshots in pbs"}'
+echo
+
+echo "## SMART"
+for dev in nvme0n1 sda; do
+  STATUS=$(smartctl -H /dev/$dev 2>/dev/null | awk '/SMART overall-health/{print $NF}')
+  echo "$dev: $STATUS"
+done
+echo
+
+echo "## dmesg Errors letzte 24h"
+dmesg --since "24 hours ago" 2>&1 | grep -iE 'error|fail' | grep -ivE 'audit|firewire' | head -10

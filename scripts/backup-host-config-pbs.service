@@ -1,0 +1,8 @@
+# Pfad auf Host: /etc/systemd/system/backup-host-config-pbs.service
+[Unit]
+Description=Backup PVE Host Config (PBS)
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/backup-host-config-pbs.sh

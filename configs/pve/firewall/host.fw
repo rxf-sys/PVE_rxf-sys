@@ -1,0 +1,9 @@
+# Pfad auf Host: /etc/pve/nodes/rxf-sys/host.fw
+
+[OPTIONS]
+enable: 1
+
+[RULES]
+IN ACCEPT -source +dc/lan -p tcp -dport 8006 -log nolog
+IN ACCEPT -source +dc/lan -p tcp -dport 22 -log nolog
+IN ACCEPT -source +dc/lan -p icmp -log nolog

@@ -1,0 +1,9 @@
+[OPTIONS]
+enable: 1
+policy_in: DROP
+policy_out: ACCEPT
+
+[IPSET lan]
+192.168.2.0/24
+
+[RULES]

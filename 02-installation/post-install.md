@@ -1,113 +1,165 @@
-# Post-Install Konfiguration
+# Post-Install — PVE 9.2.2
 
-## 1. Enterprise-Repository deaktivieren
+Reihenfolge nach Frischinstallation. Idempotent — kann auf bestehendem Setup mehrfach laufen.
+
+## 1. Repos: Enterprise raus, No-Subscription rein
 
 ```bash
-# Enterprise-Repo deaktivieren (keine Lizenz)
-sed -i 's/^deb/#deb/' /etc/apt/sources.list.d/pve-enterprise.list
+# Disable Enterprise (gibt 401 ohne Sub)
+mv /etc/apt/sources.list.d/pve-enterprise.sources \
+   /etc/apt/sources.list.d/pve-enterprise.sources.disabled
 
-# Ceph Enterprise-Repo deaktivieren (falls vorhanden)
-sed -i 's/^deb/#deb/' /etc/apt/sources.list.d/ceph.list 2>/dev/null
+# Disable Ceph (kein Ceph in Single-Node)
+mv /etc/apt/sources.list.d/ceph.sources \
+   /etc/apt/sources.list.d/ceph.sources.disabled
+
+# No-Subscription (sollte schon da sein durch Installer)
+echo "deb http://download.proxmox.com/debian/pve trixie pve-no-subscription" \
+  > /etc/apt/sources.list.d/pve-no-subscription.list
+
+apt update && apt -y dist-upgrade
 ```
 
-## 2. No-Subscription Repository aktivieren
+## 2. Tools nachinstallieren
 
 ```bash
-# Community-Repo hinzufuegen
-echo "deb http://download.proxmox.com/debian/pve bookworm pve-no-subscription" > /etc/apt/sources.list.d/pve-no-subscription.list
+apt install -y jq smartmontools fail2ban htop iotop curl ca-certificates
 ```
 
-## 3. System aktualisieren
+## 3. Subscription-Nag-Patch
+
+Patch + dpkg-Hook, sodass Patch nach Updates automatisch wieder greift.
 
 ```bash
-apt update && apt full-upgrade -y
+# Skript
+cat > /usr/local/sbin/repatch-no-nag.sh <<'EOF'
+#!/bin/bash
+PWT=/usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js
+if [ -f "$PWT" ] && grep -q "data.status.toLowerCase() !== 'active'" "$PWT"; then
+  sed -i "s/data\.status\.toLowerCase() !== 'active'/false/g" "$PWT"
+  systemctl reload-or-restart pveproxy.service 2>/dev/null || true
+  logger -t pve-no-nag "Re-applied subscription-nag patch"
+fi
+EOF
+chmod +x /usr/local/sbin/repatch-no-nag.sh
+
+# dpkg-Hook
+cat > /etc/apt/apt.conf.d/80pve-no-nag <<'EOF'
+DPkg::Post-Invoke {"/usr/local/sbin/repatch-no-nag.sh || true";};
+EOF
+
+# Initial-Patch
+/usr/local/sbin/repatch-no-nag.sh
 ```
 
-## 4. Nuetzliche Pakete installieren
+## 4. /etc/hosts pflegen
 
 ```bash
-apt install -y \
-  vim \
-  htop \
-  curl \
-  wget \
-  smartmontools \
-  ethtool \
-  iotop \
-  net-tools
+cat >> /etc/hosts <<'EOF'
+
+# rxf-sys guests
+192.168.2.209 pbs.home pbs
+EOF
 ```
 
-## 5. Subscription-Nag entfernen (optional)
+## 5. Notifications (Strato SMTP)
+
+Siehe [../07-monitoring/notifications.md](../07-monitoring/notifications.md).
 
 ```bash
-# Hinweis: Muss nach jedem PVE-Update erneut ausgefuehrt werden
-sed -Ezi.bak "s/(Ext\.Msg\.show\(\{\s+title: gettext\('No valid sub)/void\(\{ \/\/\1/g" /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js
-systemctl restart pveproxy.service
+pvesh create /cluster/notifications/endpoints/smtp \
+  --name strato \
+  --server smtp.strato.de \
+  --port 465 \
+  --mode tls \
+  --username 'info@rxf-sys.de' \
+  --password 'STRATO_PASSWORD' \
+  --from-address 'info@rxf-sys.de' \
+  --mailto 'info@rxf-sys.de' \
+  --comment 'Strato SMTP TLS:465'
+
+pvesh create /cluster/notifications/matchers \
+  --name to-strato --target strato --mode all \
+  --comment 'Alles an Strato-SMTP'
+
+pvesh set /cluster/notifications/matchers/default-matcher --disable 1
 ```
 
-## 6. Daten-SSD einbinden
+## 6. PVE-Firewall
+
+Siehe [../08-sicherheit/firewall.md](../08-sicherheit/firewall.md).
 
 ```bash
-# Partition erstellen (falls neue SSD)
-fdisk /dev/sda
-# -> n (neue Partition), p (primaer), Enter, Enter, w (schreiben)
+# cluster.fw
+cat > /etc/pve/firewall/cluster.fw <<'EOF'
+[OPTIONS]
+enable: 1
+policy_in: DROP
+policy_out: ACCEPT
 
-# Formatieren
-mkfs.ext4 /dev/sda1
+[IPSET lan]
+192.168.2.0/24
 
-# Mount-Verzeichnis erstellen
+[RULES]
+EOF
+
+# host.fw
+mkdir -p /etc/pve/nodes/rxf-sys
+cat > /etc/pve/nodes/rxf-sys/host.fw <<'EOF'
+[OPTIONS]
+enable: 1
+
+[RULES]
+IN ACCEPT -source +dc/lan -p tcp -dport 8006 -log nolog
+IN ACCEPT -source +dc/lan -p tcp -dport 22 -log nolog
+IN ACCEPT -source +dc/lan -p icmp -log nolog
+EOF
+
+pve-firewall restart
+```
+
+## 7. fail2ban
+
+Siehe [../08-sicherheit/fail2ban.md](../08-sicherheit/fail2ban.md).
+
+```bash
+cat > /etc/fail2ban/jail.d/sshd-rxf-sys.local <<'EOF'
+[DEFAULT]
+ignoreip = 127.0.0.1/8 ::1 192.168.2.0/24
+backend = systemd
+findtime = 10m
+maxretry = 5
+bantime = 1h
+
+[sshd]
+enabled = true
+mode    = aggressive
+port    = 22
+EOF
+
+systemctl enable --now fail2ban
+```
+
+## 8. Backup-Job
+
+```bash
+# Existiert nach Recovery schon, sonst:
+# pvesh create /cluster/backup ...
+# Inhalt siehe ../configs/pve/jobs.cfg
+
+cat /etc/pve/jobs.cfg     # verify
+```
+
+## 9. /mnt/storage Mount
+
+```bash
+# Nur falls Disk nach Recovery neu mounted werden muss
 mkdir -p /mnt/storage
-
-# UUID ermitteln
-blkid /dev/sda1
-
-# In /etc/fstab eintragen
-echo "UUID=<DEINE-UUID> /mnt/storage ext4 defaults,noatime,nofail 0 2" >> /etc/fstab
-
-# Mounten
+# UUID aus blkid /dev/sda1
+echo 'UUID=37be5df3-1c31-4470-84d5-d651eaa25a22 /mnt/storage ext4 defaults,noatime,nofail,x-systemd.device-timeout=30 0 2' >> /etc/fstab
 mount -a
-
-# Ordnerstruktur erstellen
-mkdir -p /mnt/storage/{shared,media/{movies,music,photos},backups}
 ```
 
-## 7. Backup-SSD einbinden
+## 10. Host-Config-Backup einrichten
 
-```bash
-mkdir -p /mnt/backups
-
-# UUID ermitteln
-blkid /dev/sdb1
-
-# In /etc/fstab eintragen
-echo "UUID=<DEINE-UUID> /mnt/backups ext4 defaults,noatime,nofail 0 2" >> /etc/fstab
-
-mount -a
-mkdir -p /mnt/backups/proxmox
-```
-
-## 8. DuckDNS einrichten
-
-```bash
-# Cronjob fuer DuckDNS IP-Update
-crontab -e
-# Eintragen:
-# */5 * * * * curl -s "https://www.duckdns.org/update?domains=rxfsys,vault-rxfsys&token=DEIN_TOKEN&ip=" > /dev/null
-```
-
-## 9. SSH-Key hinterlegen
-
-```bash
-# Auf dem Client:
-ssh-copy-id root@192.168.2.120
-```
-
-## Automatisiert
-
-Alternativ kann das Post-Install Script verwendet werden:
-
-```bash
-bash scripts/post-install.sh
-```
-
-Siehe [scripts/post-install.sh](scripts/post-install.sh)
+Siehe [../06-backup/host-config-backup.md](../06-backup/host-config-backup.md).

@@ -1,0 +1,10 @@
+# Pfad auf Host: /etc/systemd/system/backup-host-config-pbs.timer
+[Unit]
+Description=Weekly PVE Host Config Backup (PBS)
+
+[Timer]
+OnCalendar=Sun *-*-* 01:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

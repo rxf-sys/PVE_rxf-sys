@@ -1,0 +1,8 @@
+# /etc/fstab
+
+# <file system> <mount point> <type> <options> <dump> <pass>
+/dev/pve/root / ext4 errors=remount-ro 0 1
+UUID=9045-7D51 /boot/efi vfat defaults 0 1
+/dev/pve/swap none swap sw 0 0
+proc /proc proc defaults 0 0
+UUID=37be5df3-1c31-4470-84d5-d651eaa25a22 /mnt/storage ext4 defaults,noatime,nofail,x-systemd.device-timeout=30 0 2

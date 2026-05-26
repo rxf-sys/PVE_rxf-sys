@@ -1,92 +1,84 @@
-# Firewall und Ports
+# PVE-Firewall
 
-## Extern erreichbar (Port-Forwarding im Router)
+## Ebenen
 
-| Dienst | Port | Protokoll | Ziel-IP | Beschreibung |
-|--------|------|-----------|---------|--------------|
-| WireGuard VPN | 51820 | UDP | 192.168.2.123 | VPN-Tunnel |
-| HTTPS | 443 | TCP | 192.168.2.125 | Nginx (Vaultwarden) |
-| HTTP | 80 | TCP | 192.168.2.125 | Nginx (Let's Encrypt) |
+1. **Datacenter (cluster.fw)** — globale Konfiguration, IPSets, generelle Policy
+2. **Node (host.fw)** — Host-Firewall mit eingehenden Regeln
+3. **Guest (`<vmid>.fw`)** — pro CT/VM, greift nur wenn `net0 firewall=1`
 
-## Nur LAN (192.168.2.0/24)
+## Cluster (cluster.fw)
 
-| Dienst | Port | Container | Beschreibung |
-|--------|------|-----------|--------------|
-| Proxmox Web | 8006 | Host | Server-Verwaltung |
-| SSH | 22 | Host | Remote-Zugang |
-| Samba/SMB | 445 | CT 100 | Dateifreigabe |
-| DNS | 53 | CT 101 | DNS-Aufloesung (TCP/UDP) |
-| Pi-hole Web | 80 | CT 101 | Admin-Interface |
-| DHCP | 67 | CT 101 | IP-Vergabe (UDP) |
-| WG-Easy Web | 51821 | CT 102 | VPN-Verwaltung |
-| Vaultwarden | 8081 | CT 103 | Nur via Nginx erreichbar |
-| NPM Admin | 81 | CT 104 | Proxy-Verwaltung |
-| Jellyfin | 8096 | CT 105 | Media Server |
-| DLNA | 1900 | CT 105 | DLNA Discovery (UDP) |
-| Jellyfin Discovery | 7359 | CT 105 | Client Discovery (UDP) |
-| Prometheus | 9090 | CT 106 | Metriken |
-| Grafana | 3000 | CT 106 | Dashboards (zusammengelegt) |
-| PBS | 8007 | CT 108 | Backup Server |
-| Home Assistant | 8123 | CT 109 | Smart Home |
-| mDNS | 5353 | CT 109 | Geraeteerkennung (UDP) |
-| Paperless | 8000 | CT 110 | Dokumente |
-| Finance | 8080 | CT 111 | Finanzverwaltung |
+```ini
+[OPTIONS]
+enable: 1
+policy_in: DROP
+policy_out: ACCEPT
 
-## Proxmox Firewall
+[IPSET lan]
+192.168.2.0/24
 
-### Aktivierung
-
-```bash
-# Datacenter-Firewall aktivieren
-# Web-UI: Datacenter -> Firewall -> Options -> Enable: Yes
-
-# Host-Firewall aktivieren
-# Web-UI: Node -> Firewall -> Options -> Enable: Yes
-
-# Pro Container aktivieren
-# Web-UI: CT -> Firewall -> Options -> Enable: Yes
+[RULES]
 ```
 
-### Empfohlene Regeln (Datacenter-Ebene)
+Wichtig: `IPSET` (nicht `ALIAS`!) — Aliases können nicht als `-source +ipset` verwendet werden, IPSets schon.
 
-| Richtung | Aktion | Protokoll | Port | Quelle | Beschreibung |
-|----------|--------|-----------|------|--------|--------------|
-| IN | ACCEPT | TCP | 8006 | 192.168.2.0/24 | Proxmox Web |
-| IN | ACCEPT | TCP | 22 | 192.168.2.0/24 | SSH |
-| IN | DROP | - | - | - | Alles andere |
+## Host (host.fw)
 
-### Container-Firewall-Dateien
+Pfad: `/etc/pve/nodes/rxf-sys/host.fw`
 
-Alle Container haben individuelle Firewall-Regeln unter `/etc/pve/firewall/<CTID>.fw`:
+```ini
+[OPTIONS]
+enable: 1
 
-| CT | Policy IN | Policy OUT | Ports |
-|----|-----------|------------|-------|
-| 100 | DROP | ACCEPT | 445/tcp, 139/tcp, 137-138/udp |
-| 101 | DROP | ACCEPT | 53/tcp+udp, 80/tcp, 67/udp |
-| 102 | DROP | ACCEPT | 51820/udp, 51821/tcp |
-| 103 | DROP | ACCEPT | 8081/tcp (nur von 192.168.2.125) |
-| 104 | DROP | ACCEPT | 80/tcp, 443/tcp, 81/tcp |
-| 105 | DROP | ACCEPT | 8096/tcp, 1900/udp, 7359/udp |
-| 106 | DROP | ACCEPT | 9090/tcp, 3000/tcp, 9100/tcp |
-| 108 | DROP | ACCEPT | 8007/tcp |
-| 109 | DROP | ACCEPT | 8123/tcp, 5353/udp |
-| 110 | DROP | ACCEPT | 8000/tcp |
-| 111 | DROP | ACCEPT | 8080/tcp |
+[RULES]
+IN ACCEPT -source +dc/lan -p tcp -dport 8006 -log nolog    # PVE-UI
+IN ACCEPT -source +dc/lan -p tcp -dport 22 -log nolog      # SSH
+IN ACCEPT -source +dc/lan -p icmp -log nolog               # Ping
+```
 
-Alle erlauben ICMP/Ping und beschraenken Zugriff auf LAN (192.168.2.0/24).
+Plus automatische PVE-Internal-Regeln (PVEFW-0-management-v4 IPSet enthält Cluster-Nodes).
 
-## Pruefbefehle
+## Pro-Guest-Firewalls
+
+| VMID | Datei  | Policy_in | Erlaubte Ports                                           |
+|------|--------|-----------|----------------------------------------------------------|
+| 100  | 100.fw | DROP      | 445 + 139 + 137-138 (Samba) + icmp                       |
+| 102  | 102.fw | DROP      | 8081 (Vaultwarden) + icmp                                |
+| 103  | 103.fw | DROP      | 3001 (Kuma) + icmp                                       |
+| 104  | 104.fw | DROP      | 9000, 9443 (Portainer), 2283 (Immich), 8000, alles von .202 + icmp |
+| 106  | 106.fw | DROP      | 8096 (Jellyfin) + 1900, 7359 (DLNA UDP) + icmp           |
+| 201  | 201.fw | DROP      | 8007 (PBS-UI) + 22 + icmp aus +dc/lan                    |
+
+CTs ohne `.fw` (101, 107, 108, 109, VM 200): keine guest-firewall aktiv → unrestricted (LAN-trust).
+
+## iptables-Snapshot
 
 ```bash
-# Firewall-Status
-pve-firewall status
-
-# Aktive Regeln anzeigen
-iptables -L -n -v
-
-# Firewall-Log
-journalctl -u pve-firewall
-
-# Port-Scan (vom Client)
-nmap -sT 192.168.2.120
+iptables -L INPUT -nv | head
+iptables -L PVEFW-HOST-IN -nv | head -20
+ipset list PVEFW-0-lan-v4
+ipset list PVEFW-0-management-v4
 ```
+
+## Verifikation
+
+```bash
+pve-firewall status               # enabled/running
+pve-firewall compile              # zeigt komplette generierte iptables-Regeln
+
+# Test PVE-UI vom LAN
+curl -k -sS -o /dev/null -w 'HTTP %{http_code}\n' https://192.168.2.200:8006/
+```
+
+## Lockout-Recovery
+
+Wenn man sich aussperrt:
+
+```bash
+# Konsole am Host:
+pve-firewall stop          # alle Regeln raus
+# oder: in /etc/pve/firewall/cluster.fw → enable: 0
+pve-firewall restart
+```
+
+Die fail2ban-Regeln greifen unabhängig in eigene Chains (`f2b-sshd`).

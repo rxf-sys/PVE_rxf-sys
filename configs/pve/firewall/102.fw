@@ -1,0 +1,11 @@
+# CT 102 vaultwarden
+[OPTIONS]
+enable: 1
+policy_in: DROP
+policy_out: ACCEPT
+
+[RULES]
+IN ACCEPT -source 192.168.2.122 -p tcp -dport 8081 -log nolog
+IN ACCEPT -source 192.168.2.202 -p tcp -dport 8081 -log nolog
+IN ACCEPT -source 192.168.2.0/24 -p tcp -dport 8081 -log nolog
+IN ACCEPT -p icmp

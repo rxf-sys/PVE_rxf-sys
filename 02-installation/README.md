@@ -1,17 +1,31 @@
-# Proxmox Installation
+# 02 — Installation
 
-Dokumentation der Proxmox VE Installation und Post-Install Konfiguration.
+## Proxmox VE 9.2.2
 
-| Dokument | Beschreibung |
-|----------|--------------|
-| [proxmox-installation.md](proxmox-installation.md) | PVE Installation, Partitionierung |
-| [post-install.md](post-install.md) | Repos, Updates, Grundkonfiguration |
-| [scripts/post-install.sh](scripts/post-install.sh) | Automatisiertes Post-Install Script |
+Installiert via offiziellem PVE-ISO (Debian 13 Trixie). EFI + Secure Boot aktiv.
 
-## Aktuelle Version
+| Spec               | Wert                            |
+|--------------------|---------------------------------|
+| PVE-Version        | 9.2.2                           |
+| Debian             | 13 (Trixie)                     |
+| Kernel             | 7.0.2-6-pve                     |
+| Boot               | EFI, GRUB, kein proxmox-boot-tool (klassisch) |
+| Subscription       | No-Subscription Repository      |
 
-| Parameter | Wert |
-|-----------|------|
-| **Proxmox VE** | 9.1.4 |
-| **Kernel** | Linux 6.17.2-1-pve |
-| **Boot-Mode** | EFI (Secure Boot) |
+### Installations-Optionen
+
+- Filesystem: ext4 (kein ZFS)
+- Hostname: `rxf-sys.home`
+- IP: 192.168.2.200/24
+- Gateway: 192.168.2.1
+- DNS: 192.168.2.1
+- Mail: info@rxf-sys.de
+
+### Post-Install
+
+Siehe [post-install.md](post-install.md) — Subscription-Nag, Repos, Updates, Notifications, Firewall.
+
+## Komponenten dieser Installation
+
+- [post-install.md](post-install.md) — alle Schritte nach Frischinstallation
+- [pbs-vm-setup.md](pbs-vm-setup.md) — wie VM 201 (PBS) mit sdb-Passthrough erstellt wurde

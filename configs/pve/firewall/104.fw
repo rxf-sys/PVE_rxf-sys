@@ -1,0 +1,13 @@
+# CT 104 docker-host (cloudflared, immich, portainer)
+[OPTIONS]
+policy_out: ACCEPT
+enable: 1
+policy_in: DROP
+
+[RULES]
+IN ACCEPT -source 192.168.2.0/24 -p tcp -dport 9000 -log nolog
+IN ACCEPT -source 192.168.2.0/24 -p tcp -dport 9443 -log nolog
+IN ACCEPT -source 192.168.2.0/24 -p tcp -dport 2283 -log nolog
+IN ACCEPT -source 192.168.2.0/24 -p tcp -dport 8000 -log nolog
+IN ACCEPT -source 192.168.2.202 -p tcp -log nolog
+IN ACCEPT -p icmp

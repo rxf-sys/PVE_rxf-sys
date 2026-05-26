@@ -1,0 +1,11 @@
+# CT 100 nas (Samba)
+[OPTIONS]
+enable: 1
+policy_in: DROP
+policy_out: ACCEPT
+
+[RULES]
+IN ACCEPT -source 192.168.2.0/24 -p tcp -dport 445 -log nolog
+IN ACCEPT -source 192.168.2.0/24 -p tcp -dport 139 -log nolog
+IN ACCEPT -source 192.168.2.0/24 -p udp -dport 137:138 -log nolog
+IN ACCEPT -p icmp

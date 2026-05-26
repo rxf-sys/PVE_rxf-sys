@@ -1,0 +1,10 @@
+# VM 201 pbs
+[OPTIONS]
+enable: 1
+policy_in: DROP
+policy_out: ACCEPT
+
+[RULES]
+IN ACCEPT -source +dc/lan -p tcp -dport 8007 -log nolog
+IN ACCEPT -source +dc/lan -p tcp -dport 22 -log nolog
+IN ACCEPT -source +dc/lan -p icmp -log nolog

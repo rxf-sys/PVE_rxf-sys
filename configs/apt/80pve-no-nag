@@ -1,0 +1,3 @@
+# Re-applies subscription-nag patch nach jedem apt-Update
+# Pfad auf Host: /etc/apt/apt.conf.d/80pve-no-nag
+DPkg::Post-Invoke {"/usr/local/sbin/repatch-no-nag.sh || true";};

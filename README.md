@@ -1,182 +1,168 @@
-# Home-Server rxfsys
+# Home-Server rxf-sys
 
-> Proxmox VE Home-Server mit 11 LXC-Containern fuer NAS, DNS/DHCP, VPN, Passwort-Manager, Media-Server, Monitoring, Backup und Smart Home
+> Proxmox VE 9.2 Home-Server mit 9 LXC-Containern und 2 VMs für NAS, Smart Home, Media, Backup, Vault, Portfolio und Admin-Dashboard. Externer Zugriff über Cloudflare Tunnel.
 
 ---
 
-## Schnelluebersicht
+## Schnellübersicht
 
-| | |
-|---|---|
-| **Hostname** | rxfsys |
-| **OS** | Proxmox VE 9.1.6 |
-| **Kernel** | Linux 6.17.13-1-pve (EFI Secure Boot) |
-| **CPU** | Intel Core i5-9500T (6 Cores @ 2.20GHz) |
-| **RAM** | 32 GB DDR4 |
-| **Storage** | 500GB NVMe (System) + 500GB SSD (Daten) + 480GB SSD (Backup/USB) |
-| **Netzwerk** | 192.168.2.0/24 |
+|              |                                                                |
+| ------------ | -------------------------------------------------------------- |
+| **Hostname** | rxf-sys                                                        |
+| **OS**       | Proxmox VE 9.2.2 (Debian 13 Trixie)                            |
+| **Kernel**   | 7.0.2-6-pve (EFI Secure Boot)                                  |
+| **Hardware** | HP EliteDesk 800 G5 Desktop Mini                               |
+| **CPU**      | Intel Core i5-9500T (6 Cores @ 2.20 GHz)                       |
+| **RAM**      | 32 GB DDR4                                                     |
+| **Storage**  | 500 GB NVMe (System) + 500 GB SSD (Daten) + 480 GB SSD (PBS)   |
+| **Netzwerk** | 192.168.2.0/24, Host 192.168.2.200                             |
+| **PBS**      | als VM 201 mit sdb Disk-Passthrough                            |
+| **External** | Cloudflare Tunnel `rxf-sys-home` (12 Public Hostnames)         |
 
 ---
 
 ## Dokumentationsstruktur
 
-| Verzeichnis | Beschreibung |
-|-------------|--------------|
-| [01-hardware/](01-hardware/) | Server-Hardware, Storage, Netzwerk-Verkabelung |
-| [02-installation/](02-installation/) | Proxmox Installation, Post-Install, Scripts |
-| [03-netzwerk/](03-netzwerk/) | Bridges, IP-Schema, Firewall, Netzwerk-Diagramme |
-| [04-storage/](04-storage/) | LVM-Thin, Mount-Punkte, Berechtigungen |
-| [05-container/](05-container/) | Alle LXC-Container und VM-Dokumentation |
-| [06-backup/](06-backup/) | Backup-Strategie, vzdump, PBS, Restore |
-| [07-monitoring/](07-monitoring/) | Prometheus, Grafana, Alerting |
-| [08-sicherheit/](08-sicherheit/) | Benutzer, Zertifikate, 2FA, Haertung |
-| [09-wartung/](09-wartung/) | Updates, Checklisten (woechentlich/monatlich) |
-| [10-disaster-recovery/](10-disaster-recovery/) | Notfallplaene, Wiederherstellung, Troubleshooting |
-| [configs/](configs/) | Anonymisierte Konfigurationsdateien |
-| [scripts/](scripts/) | Automatisierungs-Scripts |
-| [diagramme/](diagramme/) | Netzwerk- und Storage-Diagramme |
-| [templates/](templates/) | Vorlagen fuer neue Container/Dokumentation |
+| Verzeichnis            | Inhalt                                                   |
+| ---------------------- | -------------------------------------------------------- |
+| [01-hardware/](01-hardware/)         | Hardware-Specs, Disks, BIOS                              |
+| [02-installation/](02-installation/) | PVE-Installation, Post-Install, PBS-VM-Setup             |
+| [03-netzwerk/](03-netzwerk/)         | Bridge, IP-Schema, Firewall, Cloudflare Tunnel           |
+| [04-storage/](04-storage/)           | LVM-Thin, /mnt/storage, sdb-Passthrough, Bind-Mounts     |
+| [05-container/](05-container/)       | Alle 9 LXCs + 2 VMs, einzeln dokumentiert                |
+| [06-backup/](06-backup/)             | PVE vzdump, PBS-Datastore, Host-Config-Backup, Restore   |
+| [07-monitoring/](07-monitoring/)     | Uptime-Kuma, Notifications (Strato SMTP), Admin-Dashboard|
+| [08-sicherheit/](08-sicherheit/)     | PVE-Firewall, fail2ban, Token-Inventur                   |
+| [09-wartung/](09-wartung/)           | Update-Schedules, Checklisten, häufige Tasks             |
+| [10-disaster-recovery/](10-disaster-recovery/) | Recovery-Bericht, Procedures, Notfallpläne     |
+| [configs/](configs/)                 | Anonymisierte Config-Snippets                            |
+| [scripts/](scripts/)                 | Wartungs- und Backup-Skripte                             |
+| [diagramme/](diagramme/)             | Netzwerk- und Storage-Diagramme                          |
 
 ---
 
-## Netzwerk-Architektur
+## Topologie
 
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│                    HEIMNETZWERK 192.168.2.0/24                       │
-│                                                                      │
-│   Router (Speedport Smart 4)                                         │
-│   192.168.2.1  │  DHCP: Deaktiviert (Pi-hole uebernimmt)            │
-│                │                                                     │
-│   ─────────────┴─────────────────────────────────────────────────    │
-│                                                                      │
-│   PROXMOX HOST (rxfsys)                                              │
-│   192.168.2.120  │  https://192.168.2.120:8006                       │
-│                  │                                                   │
-│   ┌──────────────┴────────────────────────────────────────────┐      │
-│   │                    LXC CONTAINER                          │      │
-│   ├───────────────────────────────────────────────────────────┤      │
-│   │  CT 100 - Samba         192.168.2.121  :445               │      │
-│   │  CT 101 - Pi-hole       192.168.2.122  :53/:80/:67        │      │
-│   │  CT 102 - WireGuard     192.168.2.123  :51820/:51821      │      │
-│   │  CT 103 - Vaultwarden   192.168.2.124  :8081              │      │
-│   │  CT 104 - Nginx-Proxy   192.168.2.125  :80/:443/:81       │      │
-│   │  CT 105 - Jellyfin      192.168.2.126  :8096              │      │
-│   │  CT 106 - Monitoring     192.168.2.127  :9090/:3000        │      │
-│   │  CT 108 - PBS           192.168.2.129  :8007              │      │
-│   │  CT 109 - Home Assist.  192.168.2.130  :8123              │      │
-│   │  CT 110 - Paperless     192.168.2.131  :8000              │      │
-│   │  CT 111 - Finance       192.168.2.132  :8080              │      │
-│   └───────────────────────────────────────────────────────────┘      │
-│                                                                      │
-│   IP-Bereiche:                                                       │
-│   • Server (statisch): 192.168.2.120-132                             │
-│   • Clients (DHCP):    192.168.2.30-119 (via Pi-hole)                │
-│   • Reserviert:        192.168.2.2-29, 192.168.2.133-254             │
-└──────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                   HEIMNETZWERK 192.168.2.0/24                           │
+│                                                                         │
+│   Router (UniFi / Speedport)                                            │
+│   Gateway 192.168.2.1                                                   │
+│                                                                         │
+│   PROXMOX HOST rxf-sys 192.168.2.200  ←  https://192.168.2.200:8006     │
+│                                                                         │
+│   ┌─────────────────────────────────────────────────────────────────┐   │
+│   │ LXC-Container                                                   │   │
+│   │  CT 100  nas                 .201  (Samba: 445, 139, 137-138)   │   │
+│   │  CT 101  admin-dashboard     .202  (Docker, :80 frontend)       │   │
+│   │  CT 102  vaultwarden         .203  (Docker, :8081)              │   │
+│   │  CT 103  uptime-kuma         .204  (Docker, :3001)              │   │
+│   │  CT 104  docker-host         .205  (Docker: cloudflared,        │   │
+│   │                                     immich :2283, portainer)    │   │
+│   │  CT 106  jellyfin            .207  (nativ, :8096 + GPU)         │   │
+│   │  CT 107  portfolio           .210  (Caddy, :80)                 │   │
+│   │  CT 108  welcome-page        .211  (Caddy, :80 + :9000 hooks)   │   │
+│   │  CT 109  orynthia            .212  (Docker, :80 + :443 nginx)   │   │
+│   ├─────────────────────────────────────────────────────────────────┤   │
+│   │ VMs                                                             │   │
+│   │  VM 200  homeassistant       .208  (HA OS, :8123)               │   │
+│   │  VM 201  pbs                 .209  (PBS, :8007, sdb passthrough)│   │
+│   └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+│   IP-Bereich Server (statisch): 192.168.2.200-212                       │
+│   Cloudflare Tunnel-Verbindung: outbound von CT 104 → cloudflare        │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Container-Uebersicht
+## Container-/VM-Übersicht
 
-| ID | Name | IP | RAM | CPU | Disk | Funktion | Doku |
-|----|------|-----|-----|-----|------|----------|------|
-| 100 | samba | .121 | 1 GB | 1 | 15 GB | Dateiserver (NAS) | [Doku](05-container/lxc/CT100-samba.md) |
-| 101 | pi-hole | .122 | 2 GB | 2 | 8 GB | DNS + DHCP + Werbeblocker | [Doku](05-container/lxc/CT101-pihole.md) |
-| 102 | wireguard | .123 | 1 GB | 1 | 8 GB | VPN Server (wg-easy) | [Doku](05-container/lxc/CT102-wireguard.md) |
-| 103 | vaultwarden | .124 | 2 GB | 1 | 8 GB | Passwort-Manager | [Doku](05-container/lxc/CT103-vaultwarden.md) |
-| 104 | nginx-proxy | .125 | 1 GB | 1 | 8 GB | Reverse Proxy + SSL | [Doku](05-container/lxc/CT104-nginx.md) |
-| 105 | jellyfin | .126 | 8 GB | 4 | 32 GB | Media Server | [Doku](05-container/lxc/CT105-jellyfin.md) |
-| 106 | monitoring | .127 | 2 GB | 2 | 15 GB | Prometheus + Grafana | [Doku](05-container/lxc/CT106-monitoring.md) |
-| 108 | pbs | .129 | 2 GB | 2 | 20 GB | Proxmox Backup Server | [Doku](05-container/lxc/CT108-pbs.md) |
-| 109 | homeassistant | .130 | 2 GB | 2 | 10 GB | Smart Home | [Doku](05-container/lxc/CT109-homeassistant.md) |
-| 110 | paperless | .131 | 2 GB | 2 | 10 GB | Dokumentenverwaltung | [Doku](05-container/lxc/CT110-paperless.md) |
-| 111 | finance | .132 | 3 GB | 2 | 10 GB | Finanzguru (Orynthia) | [Doku](05-container/lxc/CT111-finanzguru.md) |
+| ID  | Typ | Name             | IP    | RAM   | CPU | Disk  | Service                          | Doku |
+|-----|-----|------------------|-------|-------|-----|-------|----------------------------------|------|
+| 100 | LXC | nas              | .201  | 1 GB  | 1   | 8 GB  | Samba (NAS)                      | [→](05-container/lxc/CT100-nas.md) |
+| 101 | LXC | admin-dashboard  | .202  | 2 GB  | 1   | 16 GB | rxf-admin (NestJS+Vite Docker)   | [→](05-container/lxc/CT101-admin-dashboard.md) |
+| 102 | LXC | vaultwarden      | .203  | 512 M | 1   | 4 GB  | Vaultwarden (Docker)             | [→](05-container/lxc/CT102-vaultwarden.md) |
+| 103 | LXC | uptime-kuma      | .204  | 512 M | 1   | 4 GB  | Uptime Kuma (Docker)             | [→](05-container/lxc/CT103-uptime-kuma.md) |
+| 104 | LXC | docker-host      | .205  | 4 GB  | 2   | 20 GB | cloudflared + immich + portainer | [→](05-container/lxc/CT104-docker-host.md) |
+| 106 | LXC | jellyfin         | .207  | 2 GB  | 2   | 10 GB | Jellyfin (nativ, GPU)            | [→](05-container/lxc/CT106-jellyfin.md) |
+| 107 | LXC | portfolio        | .210  | 512 M | 1   | 8 GB  | Portfolio (Caddy)                | [→](05-container/lxc/CT107-portfolio.md) |
+| 108 | LXC | welcome-page     | .211  | 512 M | 1   | 8 GB  | Welcome Page (Caddy) + Hooks     | [→](05-container/lxc/CT108-welcome-page.md) |
+| 109 | LXC | orynthia         | .212  | 2 GB  | 1   | 8 GB  | Orynthia (Docker: nginx+nest+pg) | [→](05-container/lxc/CT109-orynthia.md) |
+| 200 | VM  | homeassistant    | .208  | 10 GB | 2   | 32 GB | Home Assistant OS                | [→](05-container/vm/VM200-homeassistant.md) |
+| 201 | VM  | pbs              | .209  | 4 GB  | 2   | 32 GB | Proxmox Backup Server            | [→](05-container/vm/VM201-pbs.md) |
 
-**Gesamt-Ressourcen:** ~26 GB RAM, 20 CPU Cores, ~134 GB Disk (11 Container)
+**Gesamt-Ressourcen:** ~22.5 GB RAM, 15 CPU Cores, ~158 GB LVM + sdb-Passthrough 480 GB
 
 ---
 
 ## Wichtige URLs
 
-### Interne Dienste
+### Lokal (LAN)
 
-| Dienst | URL | Beschreibung |
-|--------|-----|--------------|
-| **Proxmox** | https://192.168.2.120:8006 | Server-Verwaltung |
-| **Pi-hole** | http://pihole.home/admin | DNS und Werbeblocker |
-| **WireGuard** | http://vpn.home:51821 | VPN-Verwaltung |
-| **Nginx PM** | http://proxy.home:81 | Reverse Proxy Admin |
-| **Jellyfin** | http://jellyfin.home:8096 | Media Server |
-| **Prometheus** | http://monitoring.home:9090 | Metriken |
-| **Grafana** | http://grafana.home:3000 | Dashboards (auf CT 106) |
-| **PBS** | https://pbs.home:8007 | Backup Server |
-| **Home Assistant** | http://homeassistant.home:8123 | Smart Home |
-| **Paperless** | http://paperless.home:8000 | Dokumentenverwaltung |
-| **Finance** | http://finance.home:8080 | Finanzverwaltung |
-| **NAS (Windows)** | `\\samba.home\shared` | Dateifreigabe |
-| **NAS (Mac/Linux)** | `smb://samba.home/shared` | Dateifreigabe |
+| Dienst             | URL                            |
+|--------------------|--------------------------------|
+| **PVE Web-UI**     | https://192.168.2.200:8006     |
+| **PBS Web-UI**     | https://192.168.2.209:8007     |
+| **Admin-Dashboard**| http://192.168.2.202           |
+| **Vaultwarden**    | http://192.168.2.203:8081      |
+| **Uptime Kuma**    | http://192.168.2.204:3001      |
+| **Portainer**      | http://192.168.2.205:9000      |
+| **Immich**         | http://192.168.2.205:2283      |
+| **Jellyfin**       | http://192.168.2.207:8096      |
+| **Home Assistant** | http://192.168.2.208:8123      |
+| **NAS (Samba)**    | `\\nas.home\shared` (CIFS)     |
 
-### Externe Dienste (via DuckDNS)
+### Public (Cloudflare Tunnel)
 
-| Dienst | URL |
-|--------|-----|
-| **Vaultwarden** | https://vault-rxfsys.duckdns.org |
-| **WireGuard** | rxfsys.duckdns.org:51820 |
+| Hostname                  | → Origin                       |
+|---------------------------|--------------------------------|
+| admin.rxf-sys.de          | http://192.168.2.202:80        |
+| ha.rxf-sys.de             | http://192.168.2.208:8123      |
+| media.rxf-sys.de          | http://192.168.2.207:8096      |
+| photos.rxf-sys.de         | http://192.168.2.205:2283      |
+| monitor.rxf-sys.de        | http://192.168.2.204:3001      |
+| vault.rxf-sys.de          | http://192.168.2.203:8081      |
+| pbs.rxf-sys.de            | https://192.168.2.209:8007     |
+| portfolio.rxf-sys.de      | http://192.168.2.210:80        |
+| pve.rxf-sys.de            | https://192.168.2.200:8006     |
+| www.rxf-sys.de            | http://192.168.2.211:80        |
+| orynthia.rxf-sys.de       | http://192.168.2.212:80        |
+| hooks.rxf-sys.de          | http://192.168.2.211:9000      |
 
 ---
 
 ## Schnellbefehle
 
 ```bash
-# Alle Container anzeigen
-pct list
+# Guest-Status
+pct list && qm list
 
-# Container verwalten
-pct start|stop|restart <ID>
-pct enter <ID>
+# Storage
+pvesm status
 
-# System-Diagnose
-./scripts/rxfsys-diagnostics.sh
+# Backups
+ls -la /mnt/storage/host-configs/                          # Host-Config-Backups (täglich)
+qm guest exec 201 -- proxmox-backup-manager garbage-collection list
+qm guest exec 201 -- proxmox-backup-manager prune list
 
-# Health-Check
-./scripts/health-check.sh
+# Updates
+apt update && apt -y dist-upgrade                           # Host
+for id in 100 101 102 103 104 106 107 108 109; do          # Alle CTs
+  pct exec $id -- bash -c 'apt update && apt -y dist-upgrade'
+done
 
-# Alle Container sichern
-./scripts/backup-all.sh
+# Firewall-Status
+pve-firewall status
+iptables -L PVEFW-HOST-IN -nv | head
 
-# Host updaten
-apt update && apt full-upgrade -y
+# Health
+systemctl --failed
+pvesm status
+qm guest ping 201 || qm guest exec 201 -- uname -r
 ```
 
 ---
 
-## Scripts
-
-| Script | Beschreibung |
-|--------|--------------|
-| [scripts/rxfsys-diagnostics.sh](scripts/rxfsys-diagnostics.sh) | Vollstaendige System-Diagnose |
-| [scripts/rxfsys-autoupdate.sh](scripts/rxfsys-autoupdate.sh) | Automatische Updates |
-| [scripts/backup-all.sh](scripts/backup-all.sh) | Alle Container sichern |
-| [scripts/health-check.sh](scripts/health-check.sh) | Taeglicher Health-Check |
-| [scripts/vm-inventory.sh](scripts/vm-inventory.sh) | VM/CT Inventar exportieren |
-
----
-
-## Externe Ressourcen
-
-- [Proxmox Wiki](https://pve.proxmox.com/wiki/)
-- [Pi-hole Docs](https://docs.pi-hole.net/)
-- [WireGuard](https://www.wireguard.com/)
-- [Vaultwarden Wiki](https://github.com/dani-garcia/vaultwarden/wiki)
-- [Nginx Proxy Manager](https://nginxproxymanager.com/)
-- [Jellyfin Docs](https://jellyfin.org/docs/)
-- [Prometheus Docs](https://prometheus.io/docs/)
-- [Grafana Docs](https://grafana.com/docs/)
-- [Home Assistant Docs](https://www.home-assistant.io/docs/)
-- [Paperless-ngx Docs](https://docs.paperless-ngx.com/)
-
----
-
-*Server: rxfsys | Letzte Aktualisierung: Maerz 2026*
+*Letzte Aktualisierung: 25. Mai 2026 (nach Recovery + Best-Practice-Setup)*
