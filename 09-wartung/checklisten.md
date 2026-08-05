@@ -18,7 +18,7 @@
 - [ ] Backups verifizieren: `pvesm list pbs | wc -l` (~148+ Snapshots erwartet)
 - [ ] Probe-Restore eines kleinen CTs als VMID 999 (siehe [../06-backup/restore-procedures.md](../06-backup/restore-procedures.md))
 - [ ] Disk-Trim: `fstrim -av` (sollte automatisch von systemd-fstrim.timer laufen)
-- [ ] Audit-Script ausführen + Bericht ablegen
+- [ ] Audit-Script ausführen + Bericht ablegen: `doc-audit.sh` (siehe unten)
 
 ## Jährlich / nach größeren Änderungen
 
@@ -43,6 +43,35 @@ pve-firewall status
 journalctl -p err --since '24 hours ago' | tail -30
 ```
 
-## Health-Check-Script
+## Skripte
 
-Siehe [../scripts/](../scripts/) — TODO: `health-check.sh` schreiben (im alten Repo war eines).
+| Skript                                          | Zweck                                                     |
+|-------------------------------------------------|-----------------------------------------------------------|
+| [`health-check.sh`](../scripts/health-check.sh) | Kurzer Health-Report (wöchentlich, ~10 s)                 |
+| [`doc-audit.sh`](../scripts/doc-audit.sh)       | Vollaudit + Doku-Abgleich (monatlich / nach Änderungen)   |
+
+### Doku-Abgleich (monatlich oder nach größeren Änderungen)
+
+```bash
+# Auf dem Host als root
+/usr/local/sbin/doc-audit.sh
+# → /root/audit-<datum>.md (Passwörter/Tokens sind maskiert)
+```
+
+Der Report enthält oben eine Best-Practice-Tabelle (`PASS`/`WARN`/`FAIL`/`INFO`)
+und darunter den vollständigen Ist-Zustand, gegliedert wie dieses Repo (01–10).
+
+**Ablauf:**
+
+1. Report erzeugen und einmal selbst durchsehen (Redaktion prüfen).
+2. Alle `FAIL` abarbeiten, `WARN` bewerten — bewusste Abweichungen (z.B. SSH
+   PasswordAuth im LAN) gehören dokumentiert in [../08-sicherheit/](../08-sicherheit/).
+3. Report an Claude geben mit der Bitte, ihn gegen dieses Repo abzugleichen und
+   die Abweichungen einzupflegen.
+4. Report archivieren. `/root/*.md` liegt **nicht** im Host-Config-Backup
+   (das sichert `/etc`, `/var/lib/pve-cluster`, `/root/.ssh` usw.) — also
+   entweder nach `/mnt/storage/` kopieren oder ins Repo übernehmen.
+
+Weicht ein Endpunkt im Abschnitt "Erreichbarkeit" ab, ist entweder der Dienst
+weg oder die Tabelle in [../README.md](../README.md) veraltet — beide Fälle
+gehören geprüft.

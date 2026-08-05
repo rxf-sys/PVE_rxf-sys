@@ -10,6 +10,7 @@ Routinen für regelmäßigen Betrieb.
 | wöchentlich  | (auto) PBS-Verify Sa 05:00, Host-Config-Backup zu PBS So 01:00      |
 | wöchentlich  | (manuell) apt list --upgradable auf Host + jedem Guest              |
 | monatlich    | (manuell) SMART-Self-Test, dmesg-Review, freier Platz prüfen        |
+| monatlich    | (manuell) `doc-audit.sh` — Vollaudit + Abgleich gegen diese Doku    |
 | ad-hoc       | (manuell) nach Notification-Failures: Logs prüfen                   |
 
 Siehe [checklisten.md](checklisten.md) für konkrete Step-by-Step Anleitungen.

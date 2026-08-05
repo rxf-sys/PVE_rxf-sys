@@ -161,6 +161,9 @@ iptables -L PVEFW-HOST-IN -nv | head
 systemctl --failed
 pvesm status
 qm guest ping 201 || qm guest exec 201 -- uname -r
+
+# Vollaudit (Ist-Zustand + Best-Practice-Check, read-only)
+/usr/local/sbin/doc-audit.sh          # → /root/audit-<datum>.md
 ```
 
 ---
