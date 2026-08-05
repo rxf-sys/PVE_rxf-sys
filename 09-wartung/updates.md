@@ -7,7 +7,7 @@
 3. **LXCs in Risiko-Reihenfolge**:
    - Tier 1 (low-risk, nativ/keine Docker): 106 jellyfin, 107 portfolio, 108 welcome-page, 100 nas
    - Tier 2 (Docker, mittleres Risiko): 109 orynthia, 103 uptime-kuma, 102 vaultwarden
-   - Tier 3 (kritische Services): 101 admin-dashboard, **104 docker-host** (cloudflared!) zuletzt
+   - Tier 3 (kritische Services): 101 admin-dashboard, **110 cloudflared** (externer Zugriff!) zuletzt
 4. **VM 200** (HA OS) — via HA-UI: Settings → System → Updates
 
 ## Skripte für Bulk-Updates

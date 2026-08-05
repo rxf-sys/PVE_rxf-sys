@@ -15,7 +15,7 @@
 | 02:00 daily         | vzdump `pbs-nightly` (alle Guests außer VM 201)     |
 | 03:30 daily         | PBS Garbage Collection (Datastore: backups)         |
 | 04:00 daily         | PBS Prune `daily-prune` (keep-daily 7, keep-weekly 4, keep-monthly 6) |
-| 05:00 Sa            | PBS Verify (Default-Verify-Job)                     |
+| 05:00 So            | PBS Verify (Job `weekly-verify`)                    |
 | 01:00 So            | Host-Config-Backup zu PBS (host/rxf-sys-config)     |
 
 ## Übersicht Backup-Wege
@@ -33,7 +33,7 @@ PVE-Host (rxf-sys)                       PBS-VM (192.168.2.209)
                                           PBS-Datastore "backups"
                                                │  GC (03:30)
                                                │  Prune (04:00)
-                                               │  Verify (Sa 05:00)
+                                               │  Verify (So 05:00)
                                                ↓
                                           sdb (/mnt/backups, 460 GB)
 ```

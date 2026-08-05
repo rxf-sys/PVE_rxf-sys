@@ -6,12 +6,16 @@
 |------------|---------------------------------|
 | Hostname   | orynthia                        |
 | IP         | 192.168.2.212/24                |
-| RAM        | 2048 MB                         |
+| RAM        | 4096 MB                         |
 | CPU        | 1 Core                          |
-| rootfs     | local-lvm:vm-109-disk-0, 8 GB   |
+| rootfs     | local-lvm:vm-109-disk-0, 24 GB (79 % belegt) |
 | OS         | Debian 13                       |
-| Features   | nesting=1                       |
+| Features   | nesting=1, keyctl=1             |
 | MAC        | BC:24:11:34:DE:16               |
+
+> **Ressourcen 08/2026 erhöht:** von 2 GB/8 GB auf 4 GB/24 GB. Die rootfs ist
+> trotzdem bereits zu 79 % belegt (15 von 24 GB) — der Container hat von allen
+> Guests die höchste relative Belegung. Postgres-Wachstum im Auge behalten.
 
 ## Services (Docker)
 

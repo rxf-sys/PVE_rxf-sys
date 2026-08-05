@@ -8,7 +8,7 @@ PBS läuft als VM mit Disk-Passthrough auf die Lexar SSD (sdb).
 |-------------|----------------------------------------------------------------|
 | Name        | pbs                                                            |
 | IP          | 192.168.2.209/24                                               |
-| RAM         | 4096 MB                                                        |
+| RAM         | 6144 MB                                                        |
 | CPU         | 2 Cores (cputype=host)                                         |
 | Sockets     | 1                                                              |
 | scsi0       | local-lvm:vm-201-disk-0, 32 GB SSD, discard, iothread (rootfs) |
@@ -25,7 +25,7 @@ PBS läuft als VM mit Disk-Passthrough auf die Lexar SSD (sdb).
 ## OS
 
 - Proxmox Backup Server 4.2 auf Debian 13
-- Kernel: 7.0.2-6-pve
+- Kernel: 7.0.2-6-pve (Stand Mai 2026 — beim nächsten Audit in der VM prüfen)
 - Repos: `pbs-no-subscription` (Enterprise disabled)
 
 ## Datastore
@@ -35,7 +35,7 @@ Siehe [../../06-backup/pbs-setup.md](../../06-backup/pbs-setup.md).
 - Name: `backups`
 - Path: `/mnt/backups` (sdb1 ext4)
 - Größe: 460 GB
-- Aktuell ~21 GB belegt, **Dedup-Ratio ~32x**
+- Aktuell ~31 GB belegt von 460 GB (6,99 %), 174 Snapshots
 
 ## Services (intern in der VM)
 
