@@ -46,8 +46,8 @@ iface vmbr0 inet static
 | 192.168.2.30-119| DHCP (Clients)                          |
 | 192.168.2.120-199 | Reserviert                            |
 | **192.168.2.200** | rxf-sys Host                          |
-| **192.168.2.201-212** | Guests (siehe Tabelle unten)      |
-| 192.168.2.213-254 | Reserviert                            |
+| **192.168.2.201-214** | Guests (siehe Tabelle unten)      |
+| 192.168.2.215-254 | Reserviert                            |
 
 ### Statische IPs (Guests)
 
@@ -57,15 +57,20 @@ iface vmbr0 inet static
 | 192.168.2.202 | admin-dashboard | 101  | LXC |
 | 192.168.2.203 | vaultwarden     | 102  | LXC |
 | 192.168.2.204 | uptime-kuma     | 103  | LXC |
-| 192.168.2.205 | docker-host     | 104  | LXC |
+| 192.168.2.206 | magicmirror     | 105  | LXC |
 | 192.168.2.207 | jellyfin        | 106  | LXC |
 | 192.168.2.208 | homeassistant   | 200  | VM  |
 | 192.168.2.209 | pbs             | 201  | VM  |
 | 192.168.2.210 | portfolio       | 107  | LXC |
 | 192.168.2.211 | welcome-page    | 108  | LXC |
 | 192.168.2.212 | orynthia        | 109  | LXC |
+| 192.168.2.213 | cloudflared     | 110  | LXC |
+| 192.168.2.214 | rmm             | 111  | LXC |
 
-(206 ist seit B10-CT-105-Destroy frei.)
+**192.168.2.205 ist seit der Auflösung von CT 104 (`docker-host`) frei.**
+Achtung: `photos.rxf-sys.de` zeigt im Cloudflare Tunnel noch auf diese Adresse.
+Vor einer Neuvergabe der .205 den Tunnel-Eintrag entfernen — sonst landen
+externe Requests auf einem beliebigen neuen Guest.
 
 ## DNS
 

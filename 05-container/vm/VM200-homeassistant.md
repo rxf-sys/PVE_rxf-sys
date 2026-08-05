@@ -6,7 +6,7 @@
 |-------------|-----------------------------------------|
 | Name        | homeassistant                           |
 | IP          | 192.168.2.208/24                        |
-| RAM         | 10240 MB                                |
+| RAM         | 6144 MB                                 |
 | CPU         | 2 Cores                                 |
 | BIOS        | OVMF (UEFI)                             |
 | Machine     | q35                                     |
@@ -44,7 +44,7 @@ In HA `configuration.yaml`:
 http:
   use_x_forwarded_for: true
   trusted_proxies:
-    - 192.168.2.205    # CT 104 cloudflared
+    - 192.168.2.213    # CT 110 cloudflared
     - 172.16.0.0/12
     - 172.17.0.0/16
 ```
@@ -54,6 +54,24 @@ Cloudflare-Route `ha.rxf-sys.de`:
 - Origin: http://192.168.2.208:8123
 
 Ohne `trusted_proxies` gibt HA **400 Bad Request** auf Tunnel-Requests.
+
+> ### Offen: `ha.rxf-sys.de` liefert aktuell 400
+>
+> Das Audit vom 05.08.2026 hat für `https://ha.rxf-sys.de` **HTTP 400** gemessen
+> (CF-Ray vorhanden, der Tunnel funktioniert also). Genau das ist das Symptom
+> eines nicht vertrauten Proxys: Cloudflared ist von CT 104 (.205) nach
+> CT 110 (.213) umgezogen, in der HA-`configuration.yaml` steht aber
+> voraussichtlich noch die alte .205.
+>
+> Der Block oben zeigt bereits den **Soll-Zustand**. In HA prüfen und angleichen:
+>
+> ```bash
+> # in HA: Einstellungen → Add-ons → File Editor, oder per SSH-Add-on
+> grep -A6 'use_x_forwarded_for' /config/configuration.yaml
+> ```
+>
+> Danach HA neu starten und gegenprüfen:
+> `curl -s -o /dev/null -w '%{http_code}\n' https://ha.rxf-sys.de`
 
 ## Backup
 

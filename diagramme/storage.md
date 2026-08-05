@@ -44,7 +44,6 @@ flowchart LR
   end
 
   CT100[CT 100 nas]
-  CT104[CT 104 docker-host]
   CT106[CT 106 jellyfin]
   HostBackup[Host-Config-Backup]
 
@@ -53,7 +52,7 @@ flowchart LR
   backups --> CT100
   games  --> CT100
   media  --> CT106
-  immich --> CT104
+  immich -.- Orphan["verwaist: CT 104 entfallen"]
   HostBackup --> hostcfg
 ```
 
@@ -68,7 +67,7 @@ flowchart LR
         │                                       │
         │ host-config-backup.sh 01:30           │ Garbage Collection 03:30
         ▼                                       │ Prune 04:00
-┌──────────────────────────────┐                │ Verify Sa 05:00
+┌──────────────────────────────┐                │ Verify So 05:00
 │  /mnt/storage/host-configs/  │                │
 │  (sda1, 30 d retention)      │                │
 └──────────────────────────────┘                │
@@ -79,26 +78,34 @@ flowchart LR
                                        host/rxf-sys-config
 ```
 
-## PBS-Datastore Inhalt (Stand 2026-05-25)
+## PBS-Datastore Inhalt (Stand 2026-08-05)
+
+174 Snapshots gesamt, 31 GB von 460 GB belegt.
 
 ```
 backups (in VM 201)
 ├── ct/
-│   ├── 100/  (nas)            ~ 9 Snapshots
-│   ├── 101/  (admin-dashboard) ~ 9 Snapshots
-│   ├── 102/  (vaultwarden)    ~ 9 Snapshots
-│   ├── 103/  (uptime-kuma)    ~ 9 Snapshots
-│   ├── 104/  (docker-host)    ~ 9 Snapshots
-│   ├── 105/  (DEPRECATED)     alte Snapshots, pruned over time
-│   ├── 106/  (jellyfin)       ~ 9 Snapshots
-│   ├── 107/  (portfolio)      ~ 9 Snapshots
-│   ├── 108/  (welcome-page)   ~ 9 Snapshots
-│   └── 109/  (orynthia)       ~ 9 Snapshots
+│   ├── 100/  (nas)             13 Snapshots
+│   ├── 101/  (admin-dashboard) 13 Snapshots
+│   ├── 102/  (vaultwarden)     13 Snapshots
+│   ├── 103/  (uptime-kuma)     13 Snapshots
+│   ├── 105/  (magicmirror)     13 Snapshots
+│   ├── 106/  (jellyfin)        13 Snapshots
+│   ├── 107/  (portfolio)       13 Snapshots
+│   ├── 108/  (welcome-page)    13 Snapshots
+│   ├── 109/  (orynthia)        13 Snapshots
+│   ├── 110/  (cloudflared)     11 Snapshots
+│   └── 111/  (rmm)             10 Snapshots
 ├── vm/
-│   └── 200/  (homeassistant)  ~ 9 Snapshots
+│   ├── 200/  (homeassistant)   13 Snapshots
+│   └── 201/  (pbs)              9 Snapshots — letzter vom 21.05.2026,
+│                                 seither per `exclude 201` ausgenommen
 └── host/
-    └── rxf-sys-config/         ~ 4 wöchentliche Snapshots
+    └── rxf-sys-config/          wöchentliche Snapshots
 ```
+
+CT 104 ist mit der Auflösung des Containers aus dem Datastore verschwunden;
+die alten Snapshots sind über die Prune-Policy ausgelaufen.
 
 Retention (Prune-Policy `daily-prune`):
 - keep-daily: 7

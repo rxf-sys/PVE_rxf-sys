@@ -1,4 +1,7 @@
-# Post-Install — PVE 9.2.2
+# Post-Install — PVE 9.2.x
+
+> Ursprünglich für 9.2.2 geschrieben; Host läuft inzwischen 9.2.6 mit
+> Kernel 7.0.14-8-pve. Die Schritte gelten unverändert.
 
 Reihenfolge nach Frischinstallation. Idempotent — kann auf bestehendem Setup mehrfach laufen.
 

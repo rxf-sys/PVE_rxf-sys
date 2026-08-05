@@ -1,0 +1,10 @@
+# CT 111 rmm (RustDesk RMM) — IST-ZUSTAND 05.08.2026
+#
+# ACHTUNG: Diese Datei hat KEINEN [OPTIONS]-Block. Ohne "enable: 1" ist der
+# Regelsatz wirkungslos und der Container laeuft ungefiltert — inklusive
+# Port 80 und der RustDesk-Ports 21115-21119.
+# Soll-Zustand siehe 08-sicherheit/firewall.md.
+
+[RULES]
+
+IN ACCEPT -source 192.168.2.0/24 -p tcp -dport 22 -log nolog

@@ -51,7 +51,8 @@ qm guest exec 201 -- proxmox-backup-manager prune run daily-prune
 
 ## Verify
 
-Built-in Verify-Job läuft Sa 05:00. Prüft Checksums aller Chunks.
+Verify-Job `weekly-verify` läuft **So 05:00** (`sun 05:00`), `ignore-verified=1`,
+`outdated-after=30`. Prüft Checksums aller Chunks.
 
 ```bash
 qm guest exec 201 -- proxmox-backup-manager verify-job list

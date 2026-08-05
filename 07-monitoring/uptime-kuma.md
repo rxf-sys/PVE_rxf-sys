@@ -24,7 +24,7 @@
 | Portfolio        | HTTP(s)         | https://portfolio.rxf-sys.de   | (200)                   | 60 s     |
 | Welcome-Page     | HTTP(s)         | https://www.rxf-sys.de         | (200)                   | 60 s     |
 | Orynthia         | HTTP(s)         | https://orynthia.rxf-sys.de    | (200)                   | 60 s     |
-| Cloudflare-Tunnel | TCP             | 192.168.2.205:443 (intern)    | -                       | 60 s     |
+| Cloudflare-Tunnel | TCP             | 192.168.2.213 (CT 110)        | -                       | 60 s     |
 
 Für interne Self-Signed-TLS (PVE/PBS): "Ignore TLS/SSL error" aktivieren.
 
