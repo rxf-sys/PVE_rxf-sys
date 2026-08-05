@@ -397,7 +397,7 @@ cmd "iptables -L -n 2>/dev/null | grep -c '^' " "iptables Regelzeilen gesamt"
 
 h2 "SSH"
 cmd "sshd -T 2>/dev/null | grep -iE '^(port|listenaddress|permitrootlogin|passwordauthentication|pubkeyauthentication|permitemptypasswords|maxauthtries|x11forwarding|allowusers|allowgroups|kbdinteractiveauthentication)' | sort" "sshd effektive Config"
-cmd "ls -l /root/.ssh/authorized_keys 2>/dev/null && awk '{print \$1, \$NF}' /root/.ssh/authorized_keys 2>/dev/null" "authorized_keys (Typ + Kommentar)"
+cmd "ls -lL /root/.ssh/authorized_keys 2>/dev/null; awk 'NF>=2 {print \$1, (NF>2 ? \$NF : \"(kein Kommentar)\")}' /root/.ssh/authorized_keys 2>/dev/null" "authorized_keys (nur Typ + Kommentar, kein Key-Material)"
 
 h2 "fail2ban"
 cmd "systemctl is-active fail2ban; fail2ban-client status 2>/dev/null" "fail2ban status"
@@ -411,11 +411,11 @@ cmd "grep -c 'totp\\|^tfa' /etc/pve/user.cfg 2>/dev/null; grep -oE '^user:[^:]*'
 cmd "openssl x509 -noout -subject -enddate -in /etc/pve/local/pve-ssl.pem 2>/dev/null" "PVE-Zertifikat"
 
 h2 "Härtung allgemein"
-cmd "aa-status --summary 2>/dev/null || apparmor_status 2>/dev/null | head -5" "AppArmor"
+cmd "aa-status 2>/dev/null | grep -E 'module is loaded|profiles are loaded|enforce mode|complain mode'" "AppArmor"
 cmd "sysctl kernel.dmesg_restrict kernel.kptr_restrict fs.protected_hardlinks fs.protected_symlinks net.ipv4.conf.all.rp_filter 2>/dev/null" "Kernel-Härtung (Sysctls)"
 cmd "last -n 12 2>/dev/null" "Letzte Logins"
 cmd "lastb -n 10 2>/dev/null | head -12 || echo '(btmp nicht vorhanden)'" "Fehlgeschlagene Logins"
-cmd "journalctl -u ssh -u sshd --since '7 days ago' --no-pager 2>/dev/null | grep -ciE 'failed password|invalid user'" "SSH-Fehlversuche (7 Tage, Anzahl)"
+cmd "journalctl -u ssh -u sshd --since '7 days ago' --no-pager 2>/dev/null | grep -ciE 'failed password|invalid user' || true" "SSH-Fehlversuche (7 Tage, Anzahl)"
 
 # ----------------------------------------------------------------- 09 Wartung
 h1 "09 — Wartung & Systemzustand"
@@ -426,7 +426,7 @@ cmd "timedatectl" "timedatectl"
 cmd "systemctl is-active chrony chronyd systemd-timesyncd 2>/dev/null" "Zeitsynchronisation"
 cmd "journalctl -p err -b --no-pager 2>/dev/null | tail -40" "Fehler seit Boot (journal, err)"
 cmd "dmesg --level=err,crit,alert,emerg 2>/dev/null | tail -25" "dmesg Fehler"
-cmd "journalctl --disk-usage 2>/dev/null; grep -E '^[^#]*(SystemMaxUse|Storage)' /etc/systemd/journald.conf 2>/dev/null" "Journald"
+cmd "journalctl --disk-usage 2>/dev/null; grep -E '^[^#]*(SystemMaxUse|Storage)' /etc/systemd/journald.conf 2>/dev/null || echo '(kein SystemMaxUse gesetzt — Journal waechst unbegrenzt bis 10% der Partition)'" "Journald"
 cmd "cat /proc/pressure/cpu /proc/pressure/io /proc/pressure/memory 2>/dev/null" "PSI (Pressure Stall Info)"
 cmd "sysctl vm.swappiness; swapon --show 2>/dev/null" "Swap"
 cmd "sensors 2>/dev/null | head -20 || echo '(lm-sensors nicht installiert)'" "Temperaturen"
@@ -462,13 +462,13 @@ run_checks() {
 
   # --- Repos / Updates ------------------------------------------------------
   local ent nosub upg
-  ent="$(grep -rslE '^[^#]*enterprise\.proxmox\.com' /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null | tr '\n' ' ')"
+  ent="$(grep -slE '^[^#]*enterprise\.proxmox\.com' /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources 2>/dev/null | tr '\n' ' ')"
   if [ -n "$ent" ]; then
     chk WARN "Enterprise-Repo deaktiviert" "aktiv in: $ent — ohne Subscription schlägt apt update fehl"
   else
     chk PASS "Enterprise-Repo deaktiviert" "kein aktiver Enterprise-Eintrag"
   fi
-  nosub="$(grep -rslE '^[^#]*(pve-no-subscription|no-subscription)' /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null | head -1)"
+  nosub="$(grep -slE '^[^#]*(pve-no-subscription|no-subscription)' /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources 2>/dev/null | head -1)"
   [ -n "$nosub" ] && chk PASS "No-Subscription-Repo konfiguriert" "$nosub" \
                   || chk WARN "No-Subscription-Repo konfiguriert" "nicht gefunden — keine Updates?"
 
@@ -482,7 +482,8 @@ run_checks() {
   # --- Kernel / Reboot ------------------------------------------------------
   local running newest
   running="$(uname -r)"
-  newest="$(dpkg -l 'proxmox-kernel-*-pve*' 2>/dev/null | awk '/^ii/{print $2}' | sed 's/proxmox-kernel-//' | sort -V | tail -1)"
+  newest="$(dpkg -l 'proxmox-kernel-*-pve*' 2>/dev/null | awk '/^ii/{print $2}' \
+            | sed -e 's/^proxmox-kernel-//' -e 's/-signed$//' | sort -V -u | tail -1)"
   if [ -n "$newest" ] && [ "$running" != "$newest" ]; then
     chk WARN "Neuester Kernel aktiv" "läuft $running, installiert ist $newest — Reboot ausstehend"
   else
@@ -591,6 +592,21 @@ run_checks() {
   guestfw="$(ls /etc/pve/firewall/*.fw 2>/dev/null | grep -vc cluster.fw)"
   chk INFO "Guest-Firewall-Regelsätze" "${guestfw:-0} .fw-Dateien vorhanden"
 
+  # Ein fehlender oder nicht aktivierter Regelsatz heisst: der Guest laeuft
+  # ungefiltert, auch wenn firewall=1 an der NIC steht.
+  local nofile="" noenable=""
+  for id in $ALL_IDS; do
+    if [ ! -r "/etc/pve/firewall/$id.fw" ]; then
+      nofile="$nofile $id"
+    elif [ "$(awk -F: '/^enable:/{gsub(/ /,"",$2); print $2; exit}' "/etc/pve/firewall/$id.fw" 2>/dev/null)" != "1" ]; then
+      noenable="$noenable $id"
+    fi
+  done
+  [ -z "$nofile" ] && chk_g PASS "Regelsatz je Guest vorhanden" "alle Guests haben eine .fw" \
+                   || chk_g WARN "Regelsatz je Guest vorhanden" "ohne .fw:$nofile — nur Cluster-Policy greift"
+  [ -z "$noenable" ] && chk_g PASS "Guest-Regelsätze aktiviert" "alle mit enable: 1" \
+                     || chk_g WARN "Guest-Regelsätze aktiviert" "ohne enable: 1:$noenable — Regeln ohne Wirkung"
+
   # --- fail2ban -------------------------------------------------------------
   if systemctl is-active --quiet fail2ban 2>/dev/null; then
     chk PASS "fail2ban aktiv" "$(fail2ban-client status 2>/dev/null | awk -F: '/Jail list/{print "Jails:"$2}')"
@@ -617,15 +633,15 @@ run_checks() {
 
   # --- Backup ---------------------------------------------------------------
   local jobs_en excl
-  jobs_en="$(awk '/^vzdump:/{j=1} j && /^\s*enabled/{print $2; exit}' /etc/pve/jobs.cfg 2>/dev/null)"
+  jobs_en="$(awk '/^vzdump:/{j=1} j && /^[[:space:]]*enabled/{print $2; exit}' /etc/pve/jobs.cfg 2>/dev/null)"
   if [ ! -r /etc/pve/jobs.cfg ] || ! grep -q '^vzdump:' /etc/pve/jobs.cfg 2>/dev/null; then
     chk FAIL "vzdump-Job vorhanden" "kein vzdump-Job in /etc/pve/jobs.cfg"
   elif [ "${jobs_en:-1}" = "1" ]; then
-    chk PASS "vzdump-Job aktiviert" "enabled 1, schedule $(awk '/^\s*schedule/{print $2; exit}' /etc/pve/jobs.cfg 2>/dev/null)"
+    chk PASS "vzdump-Job aktiviert" "enabled 1, schedule $(awk '/^[[:space:]]*schedule/{print $2; exit}' /etc/pve/jobs.cfg 2>/dev/null)"
   else
     chk FAIL "vzdump-Job aktiviert" "enabled $jobs_en"
   fi
-  excl="$(awk '/^\s*exclude /{sub(/^\s*exclude /,""); print}' /etc/pve/jobs.cfg 2>/dev/null | tr '\n' ' ')"
+  excl="$(awk '/^[[:space:]]*exclude /{sub(/^[[:space:]]*exclude /,""); print}' /etc/pve/jobs.cfg 2>/dev/null | tr '\n' ' ')"
   [ -n "$excl" ] && chk INFO "Vom Backup ausgeschlossen" "$excl"
 
   local nobk="" old="" a l
@@ -859,7 +875,9 @@ redact() {
     -e 's/(PVEAPIToken=[^=]+=)[A-Za-z0-9-]{16,}/\1<REDACTED>/g' \
     -e 's/eyJ[A-Za-z0-9_\/+=.-]{30,}/<REDACTED-JWT>/g' \
     -e 's/(Serial Number:[[:space:]]*).*/\1<REDACTED>/I' \
-    -e 's/-----BEGIN [A-Z ]*PRIVATE KEY-----/<REDACTED-PRIVATE-KEY>/g'
+    -e 's/-----BEGIN [A-Z ]*PRIVATE KEY-----/<REDACTED-PRIVATE-KEY>/g' \
+    -e 's#b3BlbnNzaC1rZXktdjE[A-Za-z0-9+/=]+#<REDACTED-PRIVATE-KEY>#g' \
+    -e 's#(ssh-(rsa|dss|ed25519)|ecdsa-sha2-[a-z0-9-]+)[[:space:]]+[A-Za-z0-9+/=]{80,}#\1 <REDACTED-KEY>#g'
 }
 
 if [ "$TO_STDOUT" -eq 1 ]; then
