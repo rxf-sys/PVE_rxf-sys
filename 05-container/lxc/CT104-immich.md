@@ -12,32 +12,53 @@ Anleitung für die Neuanlage von CT 104 mit Immich. Die VMID 104 und die IP
 
 ---
 
-## 0. Vor dem Start: drei Entscheidungen
+## 0. Vor dem Start: ein Befund und zwei Entscheidungen
 
-### 0.1 Sind die alten Fotos noch da — und die Datenbank?
+### 0.1 Befund vom 05.08.2026: die Datenbank ist da
 
 `/mnt/storage/immich` hat die Auflösung von CT 104 überlebt; es lag auf sda1,
-nicht im Container. Die **Datenbank** lag dagegen in einem Docker-Volume im
-rootfs des alten CT 104 und ist damit weg — CT-104-Snapshots sind auch aus dem
-PBS-Datastore ausgelaufen.
+nicht im Container. Und Immich hatte seine automatischen DB-Dumps genau dorthin
+geschrieben. Der Bestand:
 
-Es gibt aber einen zweiten Weg: Immich legt **automatische Datenbank-Dumps in
-`UPLOAD_LOCATION/backups`** ab (standardmäßig täglich, die letzten 14). Genau
-dieses Verzeichnis liegt auf `/mnt/storage/immich` und ist damit erhalten
-geblieben.
+| | |
+|---|---|
+| **Dumps** | 14 Stück, je ~17 MB gzip (230 MB gesamt) |
+| **Neuester** | `immich-db-backup-20260803T020000-v2.7.5-pg14.19.sql.gz` |
+| **Immich-Version** | **v2.7.5** |
+| **Postgres** | 14.19 |
+| **Bibliothek gesamt** | 2,4 GB (davon 230 MB Dumps, also ~2,2 GB Medien) |
+| **Eigentümer** | `100000:100000` = root im unprivilegierten CT |
 
-**Zuerst nachsehen:**
+Damit ist die **vollständige Bibliothek wiederherstellbar** — Alben,
+Gesichtszuordnungen, Benutzer, Metadaten. Nicht nur die Dateien.
 
-```bash
-ls -lah /mnt/storage/immich/
-ls -lah /mnt/storage/immich/backups/ 2>/dev/null | tail -20
-du -sh /mnt/storage/immich
-```
+> ### Zuerst die Dumps in Sicherheit bringen
+>
+> **Vor allem anderen.** Sobald ein neues Immich läuft, greift dessen eigene
+> Retention (14 Dumps): Es schreibt um 02:00 einen frischen Dump einer
+> womöglich *leeren* Datenbank und löscht dafür den ältesten alten. Nach zwei
+> Wochen wäre der Bestand weg — und mit ihm die einzige Kopie der alten
+> Datenbank.
+>
+> ```bash
+> mkdir -p /mnt/storage/extra-backups/immich-db-2026-08
+> cp -av /mnt/storage/immich/backups/*.sql.gz \
+>        /mnt/storage/extra-backups/immich-db-2026-08/
+> ls -lah /mnt/storage/extra-backups/immich-db-2026-08/
+> ```
 
-| Ergebnis | Bedeutung |
-|----------|-----------|
-| `backups/` enthält `.sql.gz`-Dateien | Bibliothek inkl. Alben, Gesichtern und Metadaten ist wiederherstellbar → Abschnitt 8 |
-| `backups/` leer oder nicht vorhanden | nur die Dateien sind da. Alben, Gesichtserkennung und Metadaten sind verloren; die Fotos lassen sich als *External Library* wieder einbinden → Abschnitt 8.2 |
+### Zeitlicher Verlauf
+
+Die Dumps zeigen, wann Immich lief: durchgehend **5.–16. Juli**, dann eine
+Lücke, dann wieder **2. und 3. August**. Die Datei `.immich` trägt den
+1. August 16:05 — die Minute des Host-Reboots. CT 104 wurde also erst zwischen
+dem **3. und 5. August** entfernt, der Verlust ist frisch.
+
+Die Lücke vom 17. Juli bis 1. August fällt zeitlich in die Nähe des
+PBS-Ausfalls vom 12.–16. Juli (siehe
+[../../09-wartung/audit-2026-08-05.md](../../09-wartung/audit-2026-08-05.md)).
+Ob das zusammenhängt, ist offen — für die Wiederherstellung spielt es keine
+Rolle, der Dump vom 3. August ist der jüngste und vollständig.
 
 ### 0.2 RAM — reicht das noch?
 
@@ -115,9 +136,11 @@ und die Postgres-Daten. Der Thin-Pool liegt bei 18 % von 337 GB, Platz ist da.
 pct set 104 -mp0 /mnt/storage/immich,mp=/srv/immich-data
 ```
 
-`/mnt/storage/immich` gehört auf dem Host `101000:101000`, also uid/gid 1000 im
-Container. Die Docker-Container laufen als root im CT und schreiben trotzdem —
-root im User-Namespace hat die nötigen Capabilities.
+Zu den Rechten: Das Verzeichnis gehört auf dem Host `101000:101000` (uid 1000
+im CT), die darin liegenden Immich-Daten `100000:100000` (root im CT). Beides
+passt zum Standard-idmap eines unprivilegierten Containers (Offset 100000) —
+solange der neue CT ebenfalls `unprivileged: 1` ist, greifen die alten Daten
+ohne `chown`. **Ein privilegierter Container würde hier nicht passen.**
 
 ### GPU durchreichen (optional, empfohlen)
 
@@ -168,8 +191,14 @@ docker run --rm hello-world   # Funktionstest
 
 ## 3. Immich holen
 
-Immer die Dateien des **aktuellen Release** verwenden, nicht die aus `main` —
-letztere passen möglicherweise nicht zum veröffentlichten Image.
+> **Wenn die alte Bibliothek zurück soll** — und laut Abschnitt 0.1 kann sie
+> das — hier **nicht** `latest` nehmen, sondern direkt mit **v2.7.5** starten:
+> springe zu [Abschnitt 8.1](#81-restore-des-v275-dumps) und komm danach für
+> das Upgrade auf v3 zurück. Der Rest dieses Abschnitts gilt für eine
+> Installation auf der grünen Wiese.
+
+Immer die Dateien eines **Release** verwenden, nicht die aus `main` — letztere
+passen möglicherweise nicht zum veröffentlichten Image.
 
 ```bash
 mkdir -p /opt/immich && cd /opt/immich
@@ -190,11 +219,12 @@ Das Compose-File definiert vier Services:
 | `immich_redis`            | `docker.io/valkey/valkey:9`                        | intern |
 | `immich_postgres`         | `ghcr.io/immich-app/postgres:14-vectorchord…`      | intern |
 
-> **Geändert gegenüber dem alten Setup:** Die Datenbank ist nicht mehr
-> `tensorchord/pgvecto-rs`, sondern Immichs eigenes Postgres-Image mit
-> VectorChord. Redis wurde durch Valkey ersetzt. Beides ist für einen
-> Neuaufbau irrelevant, aber wichtig, falls ein alter Dump eingespielt werden
-> soll — siehe Abschnitt 8.
+> **Gute Nachricht für den Restore:** Das Postgres-Image ist zwischen v2.7.5
+> und dem aktuellen Release **bitgleich** — beide Compose-Dateien verweisen auf
+> `ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0` mit
+> demselben Digest `sha256:bcf63357…`. Es steht also **keine Migration der
+> Datenbank-Engine an**; der Dump passt direkt. Nur der Valkey-Digest
+> unterscheidet sich, was für die Daten belanglos ist.
 
 ---
 
@@ -331,43 +361,93 @@ gegenprüfen. Siehe [../../03-netzwerk/cloudflare-tunnel.md](../../03-netzwerk/c
 
 ## 8. Alte Bibliothek zurückholen
 
-### 8.1 Mit vorhandenem DB-Dump
+### 8.1 Restore des v2.7.5-Dumps
 
-Wenn in `/mnt/storage/immich/backups/` Dumps liegen, ist die vollständige
-Bibliothek wiederherstellbar — inklusive Alben, Gesichtern und Metadaten.
+Der Stand ist geklärt (Abschnitt 0.1): Dump vom 3. August, Immich v2.7.5,
+Postgres 14.19. Das Postgres-Image ist unverändert, es ist also ein reiner
+Datenbank-Restore ohne Engine-Wechsel.
 
-**Zuerst herausfinden, welche Immich-Version den Dump geschrieben hat:**
+**Reihenfolge — erst v2.7.5, dann v3.** Nicht direkt auf v3 restaurieren:
 
-```bash
-ls -lt /mnt/storage/immich/backups/ | head
-zcat /mnt/storage/immich/backups/<datei>.sql.gz | grep -m1 -i 'immich\|version'
-```
+1. **Dumps gesichert?** Siehe Kasten in Abschnitt 0.1. Ohne das kein Restore.
 
-Das ist der entscheidende Punkt: Der alte Stack war eine 1.x-Version mit
-`pgvecto-rs`. Aktuell ist **v3** mit VectorChord. Ein Dump lässt sich nicht
-beliebig weit nach vorne einspielen.
+2. **Compose passend zur Dump-Version holen** statt `latest`:
 
-Vorgehen:
+   ```bash
+   cd /opt/immich
+   BASE=https://github.com/immich-app/immich/releases/download/v2.7.5
+   curl -fsSL -o docker-compose.yml      $BASE/docker-compose.yml
+   curl -fsSL -o hwaccel.transcoding.yml $BASE/hwaccel.transcoding.yml
+   curl -fsSL -o hwaccel.ml.yml          $BASE/hwaccel.ml.yml
+   ```
 
-1. In `.env` `IMMICH_VERSION` auf **die Version des Dumps** pinnen, nicht auf `v3`.
-2. `docker compose up -d`, im Onboarding die Wiederherstellung wählen —
-   alternativ *Administration → Maintenance*, dort werden die Dumps mit
-   Restore-Button gelistet.
-3. Läuft die Bibliothek, `IMMICH_VERSION` **schrittweise** hochziehen und nach
-   jedem Schritt `docker compose up -d` sowie die Logs prüfen. Immich fährt die
-   Datenbankmigrationen beim Start.
+3. **In `.env` pinnen:**
 
-Vor einem Restore muss `DB_DATA_LOCATION` leer sein:
+   ```ini
+   IMMICH_VERSION=v2.7.5
+   ```
 
-```bash
-docker compose down
-rm -rf /opt/immich/postgres
-docker compose up -d
-```
+4. **Datenverzeichnis leeren und starten** — der Restore braucht eine
+   uninitialisierte DB:
 
-### 8.2 Ohne DB-Dump
+   ```bash
+   docker compose down
+   rm -rf /opt/immich/postgres
+   docker compose up -d
+   docker compose logs -f immich-server
+   ```
 
-Dann sind nur die Dateien da. Der saubere Weg ist eine **External Library**:
+5. **Restore auslösen.** Beim ersten Aufruf von `http://192.168.2.205:2283`
+   bietet das Onboarding die Wiederherstellung aus einem vorhandenen Dump an —
+   die Dateien unter `/data/backups` werden dort gelistet. Alternativ nach dem
+   Anlegen des Admin-Kontos über *Administration → Maintenance*.
+
+   **Kein Admin-Konto anlegen, bevor der Restore läuft**, sonst kollidiert es
+   mit den Benutzern aus dem Dump.
+
+6. **Prüfen, und zwar gründlich:** Anzahl der Assets, das älteste und das
+   neueste Foto, Alben, Benutzerkonten, geteilte Links. Erst wenn das stimmt,
+   weiter zu Schritt 7.
+
+7. **Auf v3 hochziehen:**
+
+   ```bash
+   cd /opt/immich
+   BASE=https://github.com/immich-app/immich/releases/latest/download
+   curl -fsSL -o docker-compose.yml      $BASE/docker-compose.yml
+   curl -fsSL -o hwaccel.transcoding.yml $BASE/hwaccel.transcoding.yml
+   curl -fsSL -o hwaccel.ml.yml          $BASE/hwaccel.ml.yml
+   sed -i 's/^IMMICH_VERSION=.*/IMMICH_VERSION=v3/' .env
+   docker compose pull && docker compose up -d
+   docker compose logs -f immich-server
+   ```
+
+   Die GPU-Anpassungen aus Abschnitt 4 müssen in der neu geladenen
+   `docker-compose.yml` erneut gesetzt werden.
+
+#### Zum v3-Upgrade
+
+- **Dokumentierter Breaking Change:** v3 hebt die numpy-Version an und setzt
+  damit für die ML-Komponente eine CPU auf **x86-64-v2**-Niveau voraus. Der
+  i5-9500T (Coffee Lake Refresh, 2019) erfüllt das mit Abstand — `lscpu` zeigt
+  `sse4_1`, `sse4_2`, `popcnt`, `ssse3`. **Kein Problem auf dieser Hardware.**
+- Die übrigen Breaking Changes betreffen laut Release-Notes vor allem
+  API-Endpunkte, also Drittanwendungen gegen die Immich-API.
+- Es gibt einen Bugreport zu genau diesem Sprung
+  ([#29445](https://github.com/immich-app/immich/issues/29445): fehlende Assets
+  nach Upgrade v2.7.5 → v3.0.0). Der Report ist geschlossen, ohne dass eine
+  Ursache dokumentiert wäre — Einzelfall oder Bedienfehler ist genauso möglich
+  wie ein echter Defekt. Grund genug, Schritt 6 ernst zu nehmen und **die
+  gesicherten Dumps bis auf Weiteres zu behalten**. Solange die existieren, ist
+  das Upgrade umkehrbar.
+
+Wer das Risiko nicht braucht: **auf v2.7.5 bleiben** ist eine legitime Wahl.
+Die Bibliothek ist dann zurück und läuft; das Upgrade lässt sich jederzeit
+nachholen.
+
+### 8.2 Fallback ohne DB-Dump
+
+Nur relevant, falls der Restore scheitert. Dann sind nur die Dateien da. Der saubere Weg ist eine **External Library**:
 Immich liest das Verzeichnis, ohne die Dateien zu verschieben oder zu
 verändern.
 
