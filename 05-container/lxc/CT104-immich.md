@@ -3,6 +3,11 @@
 Anleitung für die Neuanlage von CT 104 mit Immich. Die VMID 104 und die IP
 `192.168.2.205` sind seit der Auflösung des alten `docker-host` frei.
 
+> **Konkreter Ablauf für den Restore:** Dieses Dokument erklärt Hintergrund und
+> Varianten. Wer die alte Bibliothek zurückholen will, arbeitet stattdessen
+> [CT104-immich-install-v2.7.5.md](CT104-immich-install-v2.7.5.md) von oben nach
+> unten durch — dort steht derselbe Weg als linearer Ablauf ohne Verzweigungen.
+
 > **Warum genau 104 und .205:** Der Cloudflare Tunnel hat für
 > `photos.rxf-sys.de` weiterhin die Origin `http://192.168.2.205:2283`
 > eingetragen. Wer die alte VMID und IP wiederverwendet und Immich auf dem

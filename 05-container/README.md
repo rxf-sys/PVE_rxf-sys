@@ -10,7 +10,7 @@ Vollständige Dokumentation aller 11 LXC-Container und 2 VMs.
 | 101 | LXC | admin-dashboard  | .202  | 2 GB  | 1   | 16 GB | [CT101-admin-dashboard.md](lxc/CT101-admin-dashboard.md) |
 | 102 | LXC | vaultwarden      | .203  | 512 M | 1   | 4 GB  | [CT102-vaultwarden.md](lxc/CT102-vaultwarden.md) |
 | 103 | LXC | uptime-kuma      | .204  | 512 M | 1   | 4 GB  | [CT103-uptime-kuma.md](lxc/CT103-uptime-kuma.md) |
-| 104 | LXC | immich           | .205  | —     | —   | —     | **geplant**, [CT104-immich.md](lxc/CT104-immich.md) |
+| 104 | LXC | immich           | .205  | —     | —   | —     | **geplant** — [Doku](lxc/CT104-immich.md) · [Install v2.7.5](lxc/CT104-immich-install-v2.7.5.md) |
 | 105 | LXC | magicmirror      | .206  | 2 GB  | 2   | 12 GB | [CT105-magicmirror.md](lxc/CT105-magicmirror.md) |
 | 106 | LXC | jellyfin         | .207  | 2 GB  | 2   | 10 GB | [CT106-jellyfin.md](lxc/CT106-jellyfin.md) |
 | 107 | LXC | portfolio        | .210  | 512 M | 1   | 8 GB  | [CT107-portfolio.md](lxc/CT107-portfolio.md) |
