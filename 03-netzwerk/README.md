@@ -67,6 +67,18 @@ iface vmbr0 inet static
 | 192.168.2.213 | cloudflared     | 110  | LXC |
 | 192.168.2.214 | rmm             | 111  | LXC |
 
+### Geplant
+
+**192.168.2.215** ist für CT 112 `mailserver` vorgesehen — erweitert den
+Guest-Bereich dann auf .200–.215. Noch nicht vergeben, siehe
+[../11-mailserver/](../11-mailserver/). Bewusst **nicht** die freie .205, damit
+die tote Tunnel-Route `photos.rxf-sys.de` (Maßnahme 5 im Audit) keine
+Vorbedingung für den Mailserver wird.
+
+Zusätzlich geplant: WireGuard-Transfernetz **10.9.0.0/24** zwischen CT 112
+(`10.9.0.2`) und dem VPS-Relay (`10.9.0.1`) — überschneidet sich nicht mit
+192.168.2.0/24.
+
 **192.168.2.205 ist seit der Auflösung von CT 104 (`docker-host`) frei.**
 Achtung: `photos.rxf-sys.de` zeigt im Cloudflare Tunnel noch auf diese Adresse.
 Vor einer Neuvergabe der .205 den Tunnel-Eintrag entfernen — sonst landen

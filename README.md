@@ -36,6 +36,7 @@
 | [08-sicherheit/](08-sicherheit/)     | PVE-Firewall, fail2ban, Token-Inventur                   |
 | [09-wartung/](09-wartung/)           | Update-Schedules, Checklisten, Audit-Berichte            |
 | [10-disaster-recovery/](10-disaster-recovery/) | Recovery-Bericht, Procedures, Notfallpläne     |
+| [11-mailserver/](11-mailserver/)     | **Planung** — Migration Strato-Mail → eigener Mailserver |
 | [configs/](configs/)                 | Anonymisierte Config-Snippets                            |
 | [scripts/](scripts/)                 | Wartungs- und Backup-Skripte                             |
 | [diagramme/](diagramme/)             | Netzwerk- und Storage-Diagramme                          |
@@ -139,6 +140,20 @@
 | www.rxf-sys.de            | http://192.168.2.211:80        | ok |
 | orynthia.rxf-sys.de       | http://192.168.2.212:80        | ok |
 | hooks.rxf-sys.de          | http://192.168.2.211:9000      | ok |
+
+---
+
+## Geplant (nicht umgesetzt)
+
+| Vorhaben | Doku | Status |
+|----------|------|--------|
+| Mailserver CT 112 (.215) + VPS-Relay, Migration von Strato-Mail | [11-mailserver/](11-mailserver/) | Planung, 14.08.2026 |
+
+Kernpunkt: Ein Mailserver **allein** auf rxf-sys funktioniert nicht — der
+Cloudflare Tunnel transportiert kein SMTP, und der Privatanschluss hat keinen
+setzbaren PTR. Die Zielarchitektur ist deshalb Postfächer zu Hause plus kleiner
+VPS als Relay davor. Vorher müssen 2 GB RAM frei werden
+([09-wartung/audit-2026-08-05.md](09-wartung/audit-2026-08-05.md), Maßnahme 10).
 
 ---
 

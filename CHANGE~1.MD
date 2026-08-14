@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-08-14 — Mailserver-Migration geplant (Doku only)
+
+Keine Änderung am laufenden System. Neues Verzeichnis
+[11-mailserver/](11-mailserver/) mit der Planung für die Migration von
+Strato-Mail auf einen eigenen Mailserver:
+
+- Machbarkeitsanalyse: Direktbetrieb auf rxf-sys ist verbaut (Cloudflare Tunnel
+  transportiert kein SMTP, kein setzbarer PTR am Privatanschluss, Spamhaus-PBL)
+- Zielarchitektur: CT 112 `mailserver` (.215) mit docker-mailserver, davor ein
+  kleiner VPS als Postfix-Relay, verbunden per WireGuard (10.9.0.0/24)
+- Vorbedingung: 2 GB RAM freiräumen (Audit-Maßnahme 10)
+- Runbooks für DNS (MX/SPF/DKIM/DMARC/MTA-STS), imapsync-Migration, Cutover,
+  Betrieb und Rollback
+- Neues Diagramm [diagramme/mail-flow.md](diagramme/mail-flow.md)
+- Bewusste Festlegung: PVE-/PBS-Notifications bleiben auf externem SMTP, damit
+  ein Ausfall des eigenen Mailservers noch gemeldet werden kann
+
 ## 2026-05-25 — Best-Practice-Setup + Doku-Refresh
 
 ### Neu
