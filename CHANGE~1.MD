@@ -14,6 +14,12 @@ Strato-Mail auf einen eigenen Mailserver:
 - Runbooks für DNS (MX/SPF/DKIM/DMARC/MTA-STS), imapsync-Migration, Cutover,
   Betrieb und Rollback
 - Neues Diagramm [diagramme/mail-flow.md](diagramme/mail-flow.md)
+- [11-mailserver/08-alternativen-ohne-vps.md](11-mailserver/08-alternativen-ohne-vps.md):
+  Wege ohne eigenen VPS (IMAP-Pull, HTTPS-Push über den bestehenden Cloudflare
+  Tunnel, Inbound-Relay-Dienste, Geschäftsanschluss) mit Gegenüberstellung.
+  Ergebnis: ein VPS als VM auf rxf-sys bringt nichts — gemietet wird die IP,
+  nicht der Rechner. Empfehlung: mit IMAP-Pull anfangen, später auf VPS-Relay
+  wechseln, CT 112 bleibt dabei unverändert.
 - Bewusste Festlegung: PVE-/PBS-Notifications bleiben auf externem SMTP, damit
   ein Ausfall des eigenen Mailservers noch gemeldet werden kann
 

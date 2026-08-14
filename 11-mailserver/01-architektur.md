@@ -64,6 +64,20 @@ Tunnel" in
 [../08-sicherheit/firewall.md](../08-sicherheit/firewall.md#vom-wan). **Nicht
 empfohlen.**
 
+### Und ein VPS als VM auf rxf-sys?
+
+Nein. Der Wert des VPS liegt nicht darin, **was** er ist, sondern **wo** er
+steht: statische IP, setzbarer PTR, nicht in der Spamhaus PBL, Port 25 offen.
+Das sind alles Eigenschaften des Anschlusses, nicht der Maschine. Eine VM auf
+rxf-sys erbt die Heim-IP und damit exakt dieselben drei Blocker.
+
+Du mietest keinen Rechner, du mietest eine IP-Adresse.
+
+Weitere Wege ohne eigenen VPS — IMAP-Pull, HTTPS-Push durch den bestehenden
+Cloudflare Tunnel, Inbound-Relay-Dienste, Geschäftsanschluss — stehen mit
+Kosten- und Aufwandsvergleich in
+[08-alternativen-ohne-vps.md](08-alternativen-ohne-vps.md).
+
 ---
 
 ## Zielarchitektur Variante A

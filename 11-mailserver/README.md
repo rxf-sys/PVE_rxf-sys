@@ -47,7 +47,10 @@ Bevor du Zeit investierst — drei Punkte, die man vorher wissen sollte:
 Wenn dir das zu viel ist: Variante C in
 [01-architektur.md](01-architektur.md#variante-c--postfächer-zu-hause-strato-bleibt-postbote)
 gibt dir eigene Postfächer auf rxf-sys **ohne** VPS, ohne DNS-Änderung und
-ohne Risiko. Strato bleibt dabei der Postbote. Das ist der ehrliche Einstieg.
+ohne Risiko. Strato bleibt dabei der Postbote. Das ist der ehrliche Einstieg —
+konkret ausgeführt als Variante P in
+[08-alternativen-ohne-vps.md](08-alternativen-ohne-vps.md#3-variante-p--pull-postfächer-zu-hause-provider-als-briefkasten),
+zusammen mit allen weiteren Wegen ohne eigenen VPS.
 
 ---
 
@@ -66,6 +69,7 @@ Nicht überspringen — jeder Schritt setzt den vorigen voraus.
 | 6 | imapsync Strato → eigener Server, Cutover, Parallelbetrieb | [05-migration.md](05-migration.md) | 2–4 Wochen |
 | 7 | Backup, Monitoring, Reputation, Wartung dauerhaft einrichten | [06-betrieb.md](06-betrieb.md) | 2 h |
 | — | Rollback-Plan (vorher lesen, nicht erst im Ernstfall) | [07-rollback.md](07-rollback.md) | 15 min |
+| — | **Alternativen ohne eigenen VPS** — inkl. „kann der VPS nicht auf rxf-sys laufen?" | [08-alternativen-ohne-vps.md](08-alternativen-ohne-vps.md) | 20 min |
 
 Realistisch: **ein Wochenende Aufbau, danach 2–4 Wochen Parallelbetrieb**, erst
 dann Strato kündigen.
